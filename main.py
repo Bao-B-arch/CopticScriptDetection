@@ -92,6 +92,6 @@ TEST SIZE:\t\t{len(test_X)} | POURCENTAGE:{(len(test_X) / len(X) * 100):.2f}%\n\
      
     # TODO : Améliorations futures
     ## Implémenter un classificateur SVM (Support Vector Machine)
-    ## Ajouter de nouvelles caractéristiques plus discriminantes (ex: Histogram of Oriented Gradients - HOG)
+    ## Extraire de nouvelles caractéristiques (features)(ex: Histogram of Oriented Gradients - HOG)
     ## Améliorer l'analyse des métriques de performance
     ## Implémenter une approche par Bootstrap pour la validation
