@@ -40,7 +40,7 @@ if __name__ == "__main__":
     classes = np.unique(y)
 
     # Définition des caractéristiques (features) utilisées pour la classification
-    means_features = ["Mean"]
+    means_features = ["Mean", "TopMean", "BottomMean"]
     X = means_data.loc[:, means_features]
     print(
         f"FEATURE NAME:\n\
@@ -74,7 +74,7 @@ TEST SIZE:\t\t{len(test_X)} | POURCENTAGE:{(len(test_X) / len(X) * 100):.2f}%\n\
     # Entraînement du modèle sur l'ensemble d'entraînement
     rfc.fit(train_X, train_y)
     svm.fit(train_X, train_y)
-        
+
     # Prédiction sur un échantillon de 5 données aléatoires
     X_sample = test_X.sample(n=5, random_state=RANDOM_STATE)
     y_sample = test_y.loc[X_sample.index]
