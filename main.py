@@ -5,9 +5,11 @@ import matplotlib.pyplot as plt
 
 # Importation du module de chargement des données
 import data_loading
+import compute_features
 
 # Importation des modèles de Scikit-learn
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import SVC
 
 # Importation des outils de validation
 from sklearn.metrics import accuracy_score, matthews_corrcoef
@@ -22,7 +24,7 @@ if __name__ == "__main__":
     raw_data = data_loading.load_database(DATABASE_PATH)
     
     # Calcul de la moyenne des niveaux de gris des images
-    means_data = data_loading.mean_grayscale(raw_data)
+    means_data = compute_features.mean_grayscale(raw_data)
 
     # Nettoyage des données
     # Suppression des valeurs manquantes
@@ -62,32 +64,41 @@ TEST SIZE:\t\t{len(test_X)} | POURCENTAGE:{(len(test_X) / len(X) * 100):.2f}%\n\
 
     # Définition et initialisation du modèle de classification Random Forest
     rfc = RandomForestClassifier()
+    svm = SVC()
   
     # Entraînement du modèle sur l'ensemble d'entraînement
     rfc.fit(train_X, train_y)
+    svm.fit(train_X, train_y)
         
     # Prédiction sur un échantillon de 5 données aléatoires
     sample_data = means_data.sample(n=5, random_state=0)
     X_sample = sample_data.loc[:, means_features]
     y_sample = sample_data.loc[:, "Letter"]
     prediction_rfc = rfc.predict(X_sample)
+    prediction_svm = svm.predict(X_sample)
        
     # Visualisation des résultats de prédiction
     pretty_format = lambda table: np.array2string(table, formatter={'float_kind': lambda x: f'{x:.1f}'})
     print("EXAMPLE:")
     print(f"REAL:\t{pretty_format(y_sample.to_numpy())}")
     print(f"RFC:\t{pretty_format(prediction_rfc)}")
+    print(f"SVM:\t{pretty_format(prediction_svm)}")
     print("-"*NUMBER_SECTION_DEL)
     
-    # Validation du modèle avec l'ensemble de test
+    # Vérifier à partir de score la qualité du modèle (avec l'ensemble de test)
     acc_rfc = accuracy_score(
         test_y,
         rfc.predict(test_X)
+    )
+    acc_svm = accuracy_score(
+        test_y,
+        svm.predict(test_X)
     )
 
     # Affichage des performances du modèle
     print("METRICS:")
     print(f"ACC RFC:\t{acc_rfc:.2f}")
+    print(f"ACC SVM:\t{acc_svm:.2f}")
     print('-'*NUMBER_SECTION_DEL)
      
     # TODO : Améliorations futures
