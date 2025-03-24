@@ -101,8 +101,8 @@ TEST SIZE:\t\t{len(test_X)} | POURCENTAGE:{(len(test_X) / len(X) * 100):.2f}%\n\
     mcc_svm = matthews_corrcoef(test_y, svm_pred_X)
 
     ## confusion matrix
-    cm_rfc = confusion_matrix(test_y, rfc_pred_X, labels=classes)
-    cm_svm = confusion_matrix(test_y, svm_pred_X, labels=classes)
+    cm_rfc = confusion_matrix(test_y, rfc_pred_X, labels=classes, normalize="true")
+    cm_svm = confusion_matrix(test_y, svm_pred_X, labels=classes, normalize="true")
 
     # Affichage des performances du modèle
     print("METRICS:")
