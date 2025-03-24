@@ -2,6 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 # Importation du module de chargement des données
 import data_loading
@@ -12,12 +13,16 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 
 # Importation des outils de validation
-from sklearn.metrics import accuracy_score, matthews_corrcoef
+from sklearn.metrics import accuracy_score, matthews_corrcoef, confusion_matrix
 from sklearn.model_selection import train_test_split 
 
 # Définition de constantes
 NUMBER_SECTION_DEL = 50  # Nombre de séparateurs pour l'affichage
 DATABASE_PATH = "..//..//Images_Traitees"  # Chemin de la base de données
+RANDOM_STATE = 0
+
+def pretty_format(table):
+    return np.array2string(table, formatter={'float_kind': lambda x: f'{x:.1f}'})
 
 if __name__ == "__main__":
     # Chargement des données depuis la base
@@ -32,6 +37,7 @@ if __name__ == "__main__":
 
     # Définition de la variable cible (lettre correspondante)
     y = means_data.loc[:, "Letter"]
+    classes = np.unique(y)
 
     # Définition des caractéristiques (features) utilisées pour la classification
     means_features = ["Mean"]
@@ -44,7 +50,7 @@ if __name__ == "__main__":
 
     # Séparation des données en ensembles d'entraînement et de test (80% - 20%)
     train_X, test_X, train_y, test_y = train_test_split(
-        X, y, test_size=0.2, random_state=0, stratify=y
+        X, y, test_size=0.2, random_state=RANDOM_STATE, stratify=y
     )
     print(
         f"DATA SIZE:\n\
@@ -59,8 +65,7 @@ TEST SIZE:\t\t{len(test_X)} | POURCENTAGE:{(len(test_X) / len(X) * 100):.2f}%\n\
         pd.DataFrame({"Letter": train_y, "Set": "Train"}), 
         pd.DataFrame({"Letter": test_y, "Set": "Test"})
     ])
-    df_set.value_counts().plot(kind="bar", stacked=True)
-    plt.show()
+    df_set.value_counts().reset_index(level=["Set"]).plot(kind="bar", stacked=True, color=["steelblue", "red"])
 
     # Définition et initialisation du modèle de classification Random Forest
     rfc = RandomForestClassifier()
@@ -71,14 +76,12 @@ TEST SIZE:\t\t{len(test_X)} | POURCENTAGE:{(len(test_X) / len(X) * 100):.2f}%\n\
     svm.fit(train_X, train_y)
         
     # Prédiction sur un échantillon de 5 données aléatoires
-    sample_data = means_data.sample(n=5, random_state=0)
-    X_sample = sample_data.loc[:, means_features]
-    y_sample = sample_data.loc[:, "Letter"]
+    X_sample = test_X.sample(n=5, random_state=RANDOM_STATE)
+    y_sample = test_y.loc[X_sample.index]
     prediction_rfc = rfc.predict(X_sample)
     prediction_svm = svm.predict(X_sample)
        
     # Visualisation des résultats de prédiction
-    pretty_format = lambda table: np.array2string(table, formatter={'float_kind': lambda x: f'{x:.1f}'})
     print("EXAMPLE:")
     print(f"REAL:\t{pretty_format(y_sample.to_numpy())}")
     print(f"RFC:\t{pretty_format(prediction_rfc)}")
@@ -86,23 +89,43 @@ TEST SIZE:\t\t{len(test_X)} | POURCENTAGE:{(len(test_X) / len(X) * 100):.2f}%\n\
     print("-"*NUMBER_SECTION_DEL)
     
     # Vérifier à partir de score la qualité du modèle (avec l'ensemble de test)
-    acc_rfc = accuracy_score(
-        test_y,
-        rfc.predict(test_X)
-    )
-    acc_svm = accuracy_score(
-        test_y,
-        svm.predict(test_X)
-    )
+    rfc_pred_X = rfc.predict(test_X)
+    svm_pred_X = svm.predict(test_X)
+
+    ## accuracy
+    acc_rfc = accuracy_score(test_y, rfc_pred_X)
+    acc_svm = accuracy_score(test_y, svm_pred_X)
+
+    ## matthews corrcoeff
+    mcc_rfc = matthews_corrcoef(test_y, rfc_pred_X)
+    mcc_svm = matthews_corrcoef(test_y, svm_pred_X)
+
+    ## confusion matrix
+    cm_rfc = confusion_matrix(test_y, rfc_pred_X, labels=classes)
+    cm_svm = confusion_matrix(test_y, svm_pred_X, labels=classes)
 
     # Affichage des performances du modèle
     print("METRICS:")
     print(f"ACC RFC:\t{acc_rfc:.2f}")
     print(f"ACC SVM:\t{acc_svm:.2f}")
+    print(f"MCC RFC:\t{mcc_rfc:.2f}")
+    print(f"MCC SVM:\t{mcc_svm:.2f}")
     print('-'*NUMBER_SECTION_DEL)
+
+    plt.figure()
+    sns.heatmap(cm_rfc, xticklabels=classes, yticklabels=classes)
+    plt.xlabel("Predicted")
+    plt.ylabel("Actual")
+    plt.title("Confusion Matrix for RFC")
+
+    plt.figure()
+    sns.heatmap(cm_svm, xticklabels=classes, yticklabels=classes)
+    plt.xlabel("Predicted")
+    plt.ylabel("Actual")
+    plt.title("Confusion Matrix for SVM")
+    plt.show()
      
     # TODO : Améliorations futures
-    ## Implémenter un classificateur SVM (Support Vector Machine)
+    ## Améliorer les classifier
     ## Extraire de nouvelles caractéristiques (features)(ex: Histogram of Oriented Gradients - HOG)
-    ## Améliorer l'analyse des métriques de performance
     ## Implémenter une approche par Bootstrap pour la validation
