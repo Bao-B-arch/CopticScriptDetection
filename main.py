@@ -40,7 +40,7 @@ if __name__ == "__main__":
     classes = np.unique(y)
 
     # Définition des caractéristiques (features) utilisées pour la classification
-    means_features = ["Mean", "TopMean", "BottomMean"]
+    means_features = ["Mean", "TopMean", "BottomMean", "LeftMean", "RightMean"]
     X = means_data.loc[:, means_features]
     print(
         f"FEATURE NAME:\n\
