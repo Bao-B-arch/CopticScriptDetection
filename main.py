@@ -13,10 +13,12 @@ from sklearn.svm import SVC
 # Importation des outils de validation
 from sklearn.metrics import accuracy_score, matthews_corrcoef, confusion_matrix
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import RocCurveDisplay
 
 # Importation du module de chargement des données
 import data_loading
 import compute_features
+import graph_utils
 
 # Définition de constantes
 NUMBER_SECTION_DEL = 50  # Nombre de séparateurs pour l'affichage
@@ -48,14 +50,18 @@ if __name__ == "__main__":
 
     # Définition des caractéristiques (features) utilisées pour la classification
     means_features = ["Mean", "TopMean", "BottomMean", "LeftMean", "RightMean", "CenterMean"]
-    X = means_data.loc[:, means_features]
-    scaler = StandardScaler()
-    X[X.columns] = scaler.fit_transform(X)
     print(
         f"FEATURE NAME:\n\
 {means_features}\n\
 {'-'*NUMBER_SECTION_DEL}"
     )
+
+    X = means_data.loc[:, means_features]
+    graph_utils.visualize_scaling(X)
+    print("-"*NUMBER_SECTION_DEL)
+
+    scaler = StandardScaler()
+    X[X.columns] = scaler.fit_transform(X)
 
     # Séparation des données en ensembles d'entraînement et de test (80% - 20%)
     train_X, test_X, train_y, test_y = train_test_split(
@@ -68,6 +74,14 @@ TRAIN SIZE:\t\t{len(train_X)} | POURCENTAGE:{(len(train_X) / len(X) * 100):.2f}%
 TEST SIZE:\t\t{len(test_X)} | POURCENTAGE:{(len(test_X) / len(X) * 100):.2f}%\n\
 {'-'*NUMBER_SECTION_DEL}"
     )
+
+    f = plt.figure(figsize=(19, 15))
+    plt.matshow(X.corr(), fignum=f.number)
+    plt.xticks(range(X.select_dtypes(['number']).shape[1]), X.select_dtypes(['number']).columns, fontsize=14, rotation=45)
+    plt.yticks(range(X.select_dtypes(['number']).shape[1]), X.select_dtypes(['number']).columns, fontsize=14)
+    cb = plt.colorbar()
+    cb.ax.tick_params(labelsize=14)
+    plt.title('Correlation Matrix', fontsize=16)
 
     # Visualisation de la répartition des données entre Train et Test
     df_set = pd.concat([
@@ -134,6 +148,7 @@ TEST SIZE:\t\t{len(test_X)} | POURCENTAGE:{(len(test_X) / len(X) * 100):.2f}%\n\
     plt.ylabel("Actual")
     plt.title("Confusion Matrix for SVM")
 
+    plt.tight_layout()
     plt.show()
 
     # TODO : Améliorations futures
