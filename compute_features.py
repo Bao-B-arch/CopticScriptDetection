@@ -1,11 +1,9 @@
 import numpy as np
 import pandas as pd
-import cv2
-import os
    
 def mean_grayscale(database):
     df_means = pd.DataFrame(
-        columns=["Mean", "TopMean", "BottomMean", "LeftMean", "RightMean", "Letter"]
+        columns=["Mean", "TopMean", "BottomMean", "LeftMean", "RightMean", "CenterMean", "Letter"]
     )
 
     for folder, imgs in database.items():
@@ -18,13 +16,15 @@ def mean_grayscale(database):
             bottom_mean = np.mean(img[lines//2:])
             left_mean = np.mean(img[:, :cols//2])
             right_mean = np.mean(img[:, cols//2:])
-            
+            center_mean = np.mean(img[lines//4:3*lines//4, cols//4:3*cols//4])
+
             row = pd.DataFrame({
                 "Mean": [mean], 
                 "TopMean": [top_mean], 
                 "BottomMean": [bottom_mean], 
                 "LeftMean": [left_mean], 
                 "RightMean": [right_mean], 
+                "CenterMean": [center_mean], 
                 "Letter": [folder]
             })
             df_means = pd.concat([df_means, row], ignore_index=True)

@@ -1,8 +1,10 @@
-import os 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+
+# Importation des outils de préprocessing
+from sklearn.preprocessing import StandardScaler
 
 # Importation des modèles de Scikit-learn
 from sklearn.ensemble import RandomForestClassifier
@@ -10,7 +12,7 @@ from sklearn.svm import SVC
 
 # Importation des outils de validation
 from sklearn.metrics import accuracy_score, matthews_corrcoef, confusion_matrix
-from sklearn.model_selection import train_test_split 
+from sklearn.model_selection import train_test_split
 
 # Importation du module de chargement des données
 import data_loading
@@ -39,9 +41,16 @@ if __name__ == "__main__":
     y = means_data.loc[:, "Letter"]
     classes = np.unique(y)
 
+    print("TARGET DESCRIPTION:")
+    for index, value in y.value_counts().items():
+        print(f"{index}:\t\t{value}")
+    print("-"*NUMBER_SECTION_DEL)
+
     # Définition des caractéristiques (features) utilisées pour la classification
-    means_features = ["Mean", "TopMean", "BottomMean", "LeftMean", "RightMean"]
+    means_features = ["Mean", "TopMean", "BottomMean", "LeftMean", "RightMean", "CenterMean"]
     X = means_data.loc[:, means_features]
+    scaler = StandardScaler()
+    X[X.columns] = scaler.fit_transform(X)
     print(
         f"FEATURE NAME:\n\
 {means_features}\n\
@@ -69,8 +78,8 @@ TEST SIZE:\t\t{len(test_X)} | POURCENTAGE:{(len(test_X) / len(X) * 100):.2f}%\n\
     plt.title("Number of letters in each dataset")
 
     # Définition et initialisation du modèle de classification Random Forest
-    rfc = RandomForestClassifier()
-    svm = SVC()
+    rfc = RandomForestClassifier(random_state=RANDOM_STATE, class_weight="balanced")
+    svm = SVC(random_state=RANDOM_STATE, class_weight="balanced")
 
     # Entraînement du modèle sur l'ensemble d'entraînement
     rfc.fit(train_X, train_y)
@@ -124,6 +133,7 @@ TEST SIZE:\t\t{len(test_X)} | POURCENTAGE:{(len(test_X) / len(X) * 100):.2f}%\n\
     plt.xlabel("Predicted")
     plt.ylabel("Actual")
     plt.title("Confusion Matrix for SVM")
+
     plt.show()
 
     # TODO : Améliorations futures
