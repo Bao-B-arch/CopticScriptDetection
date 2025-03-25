@@ -4,10 +4,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Importation du module de chargement des données
-import data_loading
-import compute_features
-
 # Importation des modèles de Scikit-learn
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
@@ -16,9 +12,13 @@ from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, matthews_corrcoef, confusion_matrix
 from sklearn.model_selection import train_test_split 
 
+# Importation du module de chargement des données
+import data_loading
+import compute_features
+
 # Définition de constantes
 NUMBER_SECTION_DEL = 50  # Nombre de séparateurs pour l'affichage
-DATABASE_PATH = "..//..//Images_Traitees"  # Chemin de la base de données
+DATABASE_PATH = "Images_Traitees"  # Chemin de la base de données
 RANDOM_STATE = 0
 
 def pretty_format(table):
@@ -27,7 +27,7 @@ def pretty_format(table):
 if __name__ == "__main__":
     # Chargement des données depuis la base
     raw_data = data_loading.load_database(DATABASE_PATH)
-    
+
     # Calcul de la moyenne des niveaux de gris des images
     means_data = compute_features.mean_grayscale(raw_data)
 
@@ -62,15 +62,16 @@ TEST SIZE:\t\t{len(test_X)} | POURCENTAGE:{(len(test_X) / len(X) * 100):.2f}%\n\
 
     # Visualisation de la répartition des données entre Train et Test
     df_set = pd.concat([
-        pd.DataFrame({"Letter": train_y, "Set": "Train"}), 
-        pd.DataFrame({"Letter": test_y, "Set": "Test"})
-    ])
-    df_set.value_counts().reset_index(level=["Set"]).plot(kind="bar", stacked=True, color=["steelblue", "red"])
+        pd.DataFrame({"Letter": train_y}).value_counts(),
+        pd.DataFrame({"Letter": test_y}).value_counts(),
+    ], axis=1, keys=["train", "test"])
+    df_set.plot(kind="bar", stacked=True, color=["steelblue", "red"])
+    plt.title("Number of letters in each dataset")
 
     # Définition et initialisation du modèle de classification Random Forest
     rfc = RandomForestClassifier()
     svm = SVC()
-  
+
     # Entraînement du modèle sur l'ensemble d'entraînement
     rfc.fit(train_X, train_y)
     svm.fit(train_X, train_y)
@@ -80,14 +81,14 @@ TEST SIZE:\t\t{len(test_X)} | POURCENTAGE:{(len(test_X) / len(X) * 100):.2f}%\n\
     y_sample = test_y.loc[X_sample.index]
     prediction_rfc = rfc.predict(X_sample)
     prediction_svm = svm.predict(X_sample)
-       
+
     # Visualisation des résultats de prédiction
     print("EXAMPLE:")
     print(f"REAL:\t{pretty_format(y_sample.to_numpy())}")
     print(f"RFC:\t{pretty_format(prediction_rfc)}")
     print(f"SVM:\t{pretty_format(prediction_svm)}")
     print("-"*NUMBER_SECTION_DEL)
-    
+
     # Vérifier à partir de score la qualité du modèle (avec l'ensemble de test)
     rfc_pred_X = rfc.predict(test_X)
     svm_pred_X = svm.predict(test_X)
@@ -124,7 +125,7 @@ TEST SIZE:\t\t{len(test_X)} | POURCENTAGE:{(len(test_X) / len(X) * 100):.2f}%\n\
     plt.ylabel("Actual")
     plt.title("Confusion Matrix for SVM")
     plt.show()
-     
+
     # TODO : Améliorations futures
     ## Améliorer les classifier
     ## Extraire de nouvelles caractéristiques (features)(ex: Histogram of Oriented Gradients - HOG)
