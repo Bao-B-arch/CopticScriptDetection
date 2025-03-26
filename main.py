@@ -12,7 +12,8 @@ from sklearn.svm import SVC
 
 # Importation des outils de validation
 from sklearn.metrics import accuracy_score, matthews_corrcoef, confusion_matrix
-from sklearn.model_selection import train_test_split, GridSearchCV, StratifiedShuffleSplit
+from sklearn.model_selection import train_test_split, StratifiedKFold
+from sklearn.feature_selection import RFECV
 
 # Importation du module de chargement des données
 import data_loading
@@ -32,7 +33,7 @@ if __name__ == "__main__":
     raw_data = data_loading.load_database(DATABASE_PATH)
 
     # Calcul de la moyenne des niveaux de gris des images
-    means_data = compute_features.mean_grayscale(raw_data)
+    means_data = compute_features.mean_grayscale(raw_data, 18)
 
     # Nettoyage des données
     # Suppression des valeurs manquantes
@@ -48,14 +49,20 @@ if __name__ == "__main__":
     print("-"*NUMBER_SECTION_DEL)
 
     # Définition des caractéristiques (features) utilisées pour la classification
-    means_features = ["TopMean", "BottomMean", "LeftMean", "RightMean", "CenterMean"]
+    X = means_data.loc[:, means_data.columns != "Letter"]
+
+    # estimator = RandomForestClassifier(random_state=RANDOM_STATE, max_depth=10)
+    # selector = RFECV(estimator=estimator, step=1, cv=StratifiedKFold(2), scoring="accuracy")
+    # selector.fit(X, y)
+    # print(selector.n_features_)
+    means_features = means_data.columns[means_data.columns != "Letter"]
+
     print(
         f"FEATURE NAME:\n\
 {means_features}\n\
 {'-'*NUMBER_SECTION_DEL}"
     )
 
-    X = means_data.loc[:, means_features]
     graph_utils.visualize_scaling(X)
     print("-"*NUMBER_SECTION_DEL)
 
@@ -96,18 +103,17 @@ TEST SIZE:\t\t{len(test_X)} | POURCENTAGE:{(len(test_X) / len(X) * 100):.2f}%\n\
     df_set.plot(kind="bar", stacked=True, color=["steelblue", "red"])
     plt.title("Number of letters in each dataset")
 
-    C_range = np.logspace(-2, 10, 1)
-    gamma_range = np.logspace(-9, 3, 2)
-    param_grid = {"gamma": gamma_range, "C": C_range}
-    cv = StratifiedShuffleSplit(n_splits=3, test_size=0.2, random_state=RANDOM_STATE)
-    grid = GridSearchCV(SVC(), param_grid=param_grid, cv=cv, verbose=True)
-    grid.fit(X, y)
-
-    print(f"The best parameters are {grid.best_params_} with a score of {grid.best_score_:.2f}")
+    # C_range = np.logspace(-2, 10, 1)
+    # gamma_range = np.logspace(-9, 3, 2)
+    # param_grid = {"gamma": gamma_range, "C": C_range}
+    # cv = StratifiedShuffleSplit(n_splits=3, test_size=0.2, random_state=RANDOM_STATE)
+    # grid = GridSearchCV(SVC(), param_grid=param_grid, cv=cv, verbose=True)
+    # grid.fit(X, y)
+    # print(f"The best parameters are {grid.best_params_} with a score of {grid.best_score_:.2f}")
 
     # Définition et initialisation du modèle de classification Random Forest
     rfc = RandomForestClassifier(random_state=RANDOM_STATE, class_weight="balanced")
-    svm = SVC(grid.best_params_, random_state=RANDOM_STATE, class_weight="balanced")
+    svm = SVC(random_state=RANDOM_STATE, class_weight="balanced")
 
     # Entraînement du modèle sur l'ensemble d'entraînement
     rfc.fit(train_X, train_y)
@@ -167,5 +173,6 @@ TEST SIZE:\t\t{len(test_X)} | POURCENTAGE:{(len(test_X) / len(X) * 100):.2f}%\n\
 
     # TODO : Améliorations futures
     ## Améliorer les classifier
-    ## Extraire de nouvelles caractéristiques (features)(ex: Histogram of Oriented Gradients - HOG)
     ## Implémenter une approche par Bootstrap pour la validation
+    ## Exporter les features pour présentation et gain de temps lors du calcul
+    ## Features selection

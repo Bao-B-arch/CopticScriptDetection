@@ -1,32 +1,23 @@
 import numpy as np
 import pandas as pd
+from sklearn.feature_extraction import image
 
-def mean_grayscale(database):
+def mean_grayscale(database, size):
     df_means = pd.DataFrame(
-        columns=["Mean", "TopMean", "BottomMean", "LeftMean", "RightMean", "CenterMean", "Letter"]
+        columns=["Letter"]
     )
 
     for folder, imgs in database.items():
         for img in imgs:
-            lines = img.shape[0]
-            cols = img.shape[1]
+            patches = image.extract_patches_2d(img, (size, size))
+            patches = patches[::size//2]
 
-            mean = np.mean(img)
-            top_mean = np.mean(img[:lines//2])
-            bottom_mean = np.mean(img[lines//2:])
-            left_mean = np.mean(img[:, :cols//2])
-            right_mean = np.mean(img[:, cols//2:])
-            center_mean = np.mean(img[lines//4:3*lines//4, cols//4:3*cols//4])
+            row = pd.DataFrame({"Letter": [folder]})
 
-            row = pd.DataFrame({
-                "Mean": [mean], 
-                "TopMean": [top_mean], 
-                "BottomMean": [bottom_mean], 
-                "LeftMean": [left_mean], 
-                "RightMean": [right_mean], 
-                "CenterMean": [center_mean], 
-                "Letter": [folder]
-            })
+            for idx, patch in enumerate(patches):
+                mean = np.mean(patch)
+                row.loc[:, f"patch_{idx}"] = mean
+
             df_means = pd.concat([df_means, row], ignore_index=True)
 
     return df_means
