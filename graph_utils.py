@@ -44,9 +44,6 @@ def visualize_scaling(X):
     sns.boxplot(data=X_scaled, ax=axes[1])
     axes[1].set_title('Distribution Après Standard Scaling')
 
-    plt.tight_layout()
-    plt.show()
-
     # Analyse statistique des outliers avec MAD
     outliers_stats = {}
     for col in X.columns:

@@ -12,8 +12,7 @@ from sklearn.svm import SVC
 
 # Importation des outils de validation
 from sklearn.metrics import accuracy_score, matthews_corrcoef, confusion_matrix
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import RocCurveDisplay
+from sklearn.model_selection import train_test_split, GridSearchCV, StratifiedShuffleSplit
 
 # Importation du module de chargement des données
 import data_loading
@@ -49,7 +48,7 @@ if __name__ == "__main__":
     print("-"*NUMBER_SECTION_DEL)
 
     # Définition des caractéristiques (features) utilisées pour la classification
-    means_features = ["Mean", "TopMean", "BottomMean", "LeftMean", "RightMean", "CenterMean"]
+    means_features = ["TopMean", "BottomMean", "LeftMean", "RightMean", "CenterMean"]
     print(
         f"FEATURE NAME:\n\
 {means_features}\n\
@@ -83,6 +82,12 @@ TEST SIZE:\t\t{len(test_X)} | POURCENTAGE:{(len(test_X) / len(X) * 100):.2f}%\n\
     cb.ax.tick_params(labelsize=14)
     plt.title('Correlation Matrix', fontsize=16)
 
+    print(
+        f"CORRELATION MATRIX:\n\
+{X.corr()}\n\
+{'-'*NUMBER_SECTION_DEL}"
+    )
+
     # Visualisation de la répartition des données entre Train et Test
     df_set = pd.concat([
         pd.DataFrame({"Letter": train_y}).value_counts(),
@@ -91,9 +96,18 @@ TEST SIZE:\t\t{len(test_X)} | POURCENTAGE:{(len(test_X) / len(X) * 100):.2f}%\n\
     df_set.plot(kind="bar", stacked=True, color=["steelblue", "red"])
     plt.title("Number of letters in each dataset")
 
+    C_range = np.logspace(-2, 10, 1)
+    gamma_range = np.logspace(-9, 3, 2)
+    param_grid = {"gamma": gamma_range, "C": C_range}
+    cv = StratifiedShuffleSplit(n_splits=3, test_size=0.2, random_state=RANDOM_STATE)
+    grid = GridSearchCV(SVC(), param_grid=param_grid, cv=cv, verbose=True)
+    grid.fit(X, y)
+
+    print(f"The best parameters are {grid.best_params_} with a score of {grid.best_score_:.2f}")
+
     # Définition et initialisation du modèle de classification Random Forest
     rfc = RandomForestClassifier(random_state=RANDOM_STATE, class_weight="balanced")
-    svm = SVC(random_state=RANDOM_STATE, class_weight="balanced")
+    svm = SVC(grid.best_params_, random_state=RANDOM_STATE, class_weight="balanced")
 
     # Entraînement du modèle sur l'ensemble d'entraînement
     rfc.fit(train_X, train_y)

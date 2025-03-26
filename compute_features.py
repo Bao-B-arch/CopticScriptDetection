@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-   
+
 def mean_grayscale(database):
     df_means = pd.DataFrame(
         columns=["Mean", "TopMean", "BottomMean", "LeftMean", "RightMean", "CenterMean", "Letter"]
