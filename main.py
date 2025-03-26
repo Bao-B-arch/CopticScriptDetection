@@ -3,6 +3,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+from sklearn import set_config
+
 # Importation des outils de préprocessing
 from sklearn.preprocessing import StandardScaler
 
@@ -13,12 +15,13 @@ from sklearn.svm import SVC
 # Importation des outils de validation
 from sklearn.metrics import accuracy_score, matthews_corrcoef, confusion_matrix
 from sklearn.model_selection import train_test_split
-from sklearn.feature_selection import SelectKBest
 
 # Importation du module de chargement des données
 import data_loading
 import compute_features
 import graph_utils
+
+set_config(transform_output = "pandas")
 
 # Définition de constantes
 NUMBER_SECTION_DEL = 50  # Nombre de séparateurs pour l'affichage
@@ -52,10 +55,6 @@ if __name__ == "__main__":
 
     # Définition des caractéristiques (features) utilisées pour la classification
     X = means_data.loc[:, means_data.columns != "Letter"]
-    selector = SelectKBest(k=8)
-    selector.fit(X, y)
-
-    X = X.loc[:, selector.get_feature_names_out()]
     means_features = X.columns
 
     print(
@@ -68,7 +67,7 @@ if __name__ == "__main__":
     print("-"*NUMBER_SECTION_DEL)
 
     scaler = StandardScaler()
-    X[X.columns] = scaler.fit_transform(X)
+    X = scaler.fit_transform(X)
 
     # Séparation des données en ensembles d'entraînement et de test (80% - 20%)
     train_X, test_X, train_y, test_y = train_test_split(
