@@ -113,7 +113,7 @@ TEST SIZE:\t\t{len(test_X)} | POURCENTAGE:{(len(test_X) / len(X) * 100):.2f}%\n\
     svm.fit(train_X, train_y)
 
     # Prédiction sur un échantillon de 5 données aléatoires
-    X_sample = test_X.sample(n=5, random_state=RANDOM_STATE)
+    X_sample = test_X.sample(n=10, random_state=RANDOM_STATE)
     y_sample = test_y.loc[X_sample.index]
     prediction_rfc = rfc.predict(X_sample)
     prediction_svm = svm.predict(X_sample)
