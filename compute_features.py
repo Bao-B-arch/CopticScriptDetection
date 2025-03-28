@@ -37,7 +37,7 @@ def export_features(path: str, database: pd.DataFrame, size: int, factor: int = 
 
     shape = 28//(size//2) - 1
     if not os.path.exists(path):
-            os.makedirs(path)
+        os.makedirs(path)
 
     for idx, row in database.groupby("Letter").first().iterrows():
         curr_path = os.path.join(path, idx)
@@ -45,6 +45,6 @@ def export_features(path: str, database: pd.DataFrame, size: int, factor: int = 
             os.makedirs(curr_path)
         curr_path = os.path.join(curr_path, f"example_{idx}.png")
 
-        arr = np.reshape(row.to_numpy(), (-1, shape))
-        zoom_arr = np.kron(arr, np.ones((factor, factor)))
+        arr = np.reshape(row.to_numpy().astype(np.uint8), (-1, shape))
+        zoom_arr = np.kron(arr, np.ones((factor, factor))).astype(np.uint8)
         cv2.imwrite(curr_path, zoom_arr)
