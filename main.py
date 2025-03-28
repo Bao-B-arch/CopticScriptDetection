@@ -3,6 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+# Scikit learn setting to export data as pandas
 from sklearn import set_config
 
 # Importation des outils de préprocessing
@@ -85,8 +86,15 @@ TEST SIZE:\t\t{len(test_X)} | POURCENTAGE:{(len(test_X) / len(X) * 100):.2f}%\n\
 
     f = plt.figure(figsize=(19, 15))
     plt.matshow(X.corr(), fignum=f.number)
-    plt.xticks(range(X.select_dtypes(['number']).shape[1]), X.select_dtypes(['number']).columns, fontsize=14, rotation=45)
-    plt.yticks(range(X.select_dtypes(['number']).shape[1]), X.select_dtypes(['number']).columns, fontsize=14)
+    plt.xticks(
+        range(X.select_dtypes(['number']).shape[1]), 
+        X.select_dtypes(['number']).columns, 
+        fontsize=14, 
+        rotation=45)
+    plt.yticks(
+        range(X.select_dtypes(['number']).shape[1]), 
+        X.select_dtypes(['number']).columns, 
+        fontsize=14)
     cb = plt.colorbar()
     cb.ax.tick_params(labelsize=14)
     plt.title('Correlation Matrix', fontsize=16)

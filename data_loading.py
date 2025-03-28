@@ -1,7 +1,5 @@
-import numpy as np
-import pandas as pd
-import cv2
 import os
+import cv2
 
 def load_image(image_path: str):
     # reads image as grayscale
