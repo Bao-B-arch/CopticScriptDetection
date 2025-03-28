@@ -26,6 +26,7 @@ set_config(transform_output = "pandas")
 # Définition de constantes
 NUMBER_SECTION_DEL = 50  # Nombre de séparateurs pour l'affichage
 DATABASE_PATH = "Images_Traitees"  # Chemin de la base de données
+EXPORT_PATH = "export"  # Chemin de la base de données
 RANDOM_STATE = 0
 
 def pretty_format(table):
@@ -38,6 +39,7 @@ if __name__ == "__main__":
     # Calcul de la moyenne des niveaux de gris des images
     print("FEATURES COMPUTATION:")
     means_data = compute_features.mean_grayscale(raw_data, 10)
+    compute_features.export_features(EXPORT_PATH, means_data, 10, 100)
     print("-"*NUMBER_SECTION_DEL)
 
     # Nettoyage des données
@@ -161,7 +163,6 @@ TEST SIZE:\t\t{len(test_X)} | POURCENTAGE:{(len(test_X) / len(X) * 100):.2f}%\n\
     plt.title("Confusion Matrix for SVM")
 
     plt.tight_layout()
-    plt.show()
 
     # TODO : Améliorations futures
     ## Améliorer les classifier
