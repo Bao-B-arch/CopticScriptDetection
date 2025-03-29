@@ -1,3 +1,5 @@
+from timeit import default_timer as timer
+from typing import Tuple
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -37,12 +39,15 @@ def pretty_format(table):
 
 if __name__ == "__main__":
     # Chargement des données depuis la base
-    raw_data = data_loading.load_database(DATABASE_PATH)
+    raw_data, data_size = data_loading.load_database(DATABASE_PATH)
 
     # Calcul de la moyenne des niveaux de gris des images
     print("FEATURES COMPUTATION:")
-    means_data = compute_features.mean_grayscale(raw_data, PATCH_SIZE)
+    start = timer()
+    means_data = compute_features.mean_grayscale(raw_data, data_size, PATCH_SIZE)
     compute_features.export_features(EXPORT_PATH, means_data, PATCH_SIZE, FACTOR_SIZE_EXPORT)
+    end = timer()
+    print(end - start)
     print("-"*NUMBER_SECTION_DEL)
 
     # Nettoyage des données
@@ -89,13 +94,13 @@ TEST SIZE:\t\t{len(test_X)} | POURCENTAGE:{(len(test_X) / len(X) * 100):.2f}%\n\
     f = plt.figure(figsize=(19, 15))
     plt.matshow(X.corr(), fignum=f.number)
     plt.xticks(
-        range(X.select_dtypes(['number']).shape[1]), 
-        X.select_dtypes(['number']).columns, 
-        fontsize=14, 
+        range(X.select_dtypes(['number']).shape[1]),
+        X.select_dtypes(['number']).columns,
+        fontsize=14,
         rotation=45)
     plt.yticks(
-        range(X.select_dtypes(['number']).shape[1]), 
-        X.select_dtypes(['number']).columns, 
+        range(X.select_dtypes(['number']).shape[1]),
+        X.select_dtypes(['number']).columns,
         fontsize=14)
     cb = plt.colorbar()
     cb.ax.tick_params(labelsize=14)
@@ -177,4 +182,4 @@ TEST SIZE:\t\t{len(test_X)} | POURCENTAGE:{(len(test_X) / len(X) * 100):.2f}%\n\
     # TODO : Améliorations futures
     ## Améliorer les classifier
     ## Implémenter une approche par Bootstrap pour la validation
-    ## Exporter les features pour présentation et gain de temps lors du calcul
+    ## Exporter les features pour gain de temps lors du calcul

@@ -3,42 +3,46 @@ import cv2
 import numpy as np
 import pandas as pd
 
-def mean_grayscale(database: dict, size: int) -> pd.DataFrame:
-    df_means = pd.DataFrame( columns=["Letter"])
+IMAGE_SIZE = 28
 
-    nb_pairs = 28//(size//2)
-    print(f"Computing {(nb_pairs - 1)*(nb_pairs - 1)} patches for each image")
-    arr = np.linspace(0, 28, nb_pairs + 1)
+def mean_grayscale(database: dict, data_size: int, patch_size: int) -> pd.DataFrame:
+    shape = IMAGE_SIZE // (patch_size//2) - 1
+    print(f"Computing {shape*shape} patches for each image")
+    patch_pairs = np.linspace(0, IMAGE_SIZE, shape + 2).astype(np.uint8)
 
+    col = pd.RangeIndex(0, shape)
+    col.append(pd.Index(["Letter"]))
+    df = pd.DataFrame(columns=col, index=pd.RangeIndex(0, data_size))
+
+    idx = 0
     for folder, imgs in database.items():
         for img in imgs:
             patch_idx = 0
-            row = pd.DataFrame({"Letter": [folder]})
+            df.loc[idx, "Letter"] = folder
 
-            for i in range(nb_pairs - 1):
-                row_l = int(arr[i])
-                row_h = int(arr[i + 2])
+            for i in range(shape):
+                row_l = patch_pairs[i]
+                row_h = patch_pairs[i + 2]
 
-                for j in range(nb_pairs - 1):
-                    col_l = int(arr[j])
-                    col_h = int(arr[j + 2])
+                for j in range(shape):
+                    col_l = patch_pairs[j]
+                    col_h = patch_pairs[j + 2]
 
                     patch = img[row_l:row_h, col_l:col_h]
                     mean = np.mean(patch)
 
-                    row.loc[:, patch_idx] = mean
+                    df.loc[idx, patch_idx] = mean
                     patch_idx += 1
+            idx += 1
 
-            df_means = pd.concat([df_means, row], ignore_index=True)
-
-    return df_means
+    return df
 
 def population_std(x: pd.Series) -> float:
     return x.std(ddof=0)
 
-def export_features(path: str, database: pd.DataFrame, size: int, factor: int = 10) -> None:
+def export_features(path: str, database: pd.DataFrame, patch_size: int, factor: int = 10) -> None:
 
-    shape = 28//(size//2) - 1
+    shape = IMAGE_SIZE // (patch_size//2) - 1
     if not os.path.exists(path):
         os.makedirs(path)
 
@@ -75,7 +79,7 @@ def export_features(path: str, database: pd.DataFrame, size: int, factor: int = 
             x_stop = x_start + std_factor
             y_start = y_center - std_factor // 2
             y_stop = y_start + std_factor
-            
+
             square = np.ones(shape=(std_factor, std_factor)) * mean
             background[x_start:x_stop, y_start:y_stop] = square.astype(np.uint8)
 

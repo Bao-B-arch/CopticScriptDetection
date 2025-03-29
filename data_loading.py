@@ -1,4 +1,5 @@
 import os
+from typing import Tuple
 import cv2
 
 def load_image(image_path: str):
@@ -16,14 +17,16 @@ def load_folder(folder_path: str) -> list:
 
     return imgs
 
-def load_database(path: str) -> dict:
-    # charger tous les dossier de la base des données 
+def load_database(path: str) -> Tuple[dict, int]:
+    # charger tous les dossier de la base des données
     # retourner un dictionnaire d'load_image
     db = {}
+    db_size = 0
     for folder in os.listdir(path):
         imgs = load_folder(os.path.join(path, folder))
+        db_size += len(imgs)
         db[folder] = imgs
-    return db
+    return db, db_size
 
 if __name__ == "__main__":
     print("Data_Loading")
