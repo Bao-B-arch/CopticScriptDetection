@@ -29,6 +29,8 @@ NUMBER_SECTION_DEL = 50  # Nombre de séparateurs pour l'affichage
 DATABASE_PATH = "Images_Traitees"  # Chemin de la base de données
 EXPORT_PATH = "export"  # Chemin de la base de données
 RANDOM_STATE = 0
+PATCH_SIZE = 10
+FACTOR_SIZE_EXPORT = 100
 
 def pretty_format(table):
     return np.array2string(table, formatter={'float_kind': lambda x: f'{x:.1f}'})
@@ -39,8 +41,8 @@ if __name__ == "__main__":
 
     # Calcul de la moyenne des niveaux de gris des images
     print("FEATURES COMPUTATION:")
-    means_data = compute_features.mean_grayscale(raw_data, 10)
-    compute_features.export_features(EXPORT_PATH, means_data, 10, 100)
+    means_data = compute_features.mean_grayscale(raw_data, PATCH_SIZE)
+    compute_features.export_features(EXPORT_PATH, means_data, PATCH_SIZE, FACTOR_SIZE_EXPORT)
     print("-"*NUMBER_SECTION_DEL)
 
     # Nettoyage des données

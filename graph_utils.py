@@ -18,7 +18,7 @@ def mad(data):
     mad_value = np.median(np.abs(data - median))
     return mad_value
 
-def visualize_scaling(X):
+def visualize_scaling(X: pd.DataFrame) -> dict:
     """
     Visualise l'effet du standard scaling avec détection des outliers via MAD
     
@@ -38,7 +38,7 @@ def visualize_scaling(X):
 
     # Calcul du scaling
     scaler = StandardScaler()
-    X_scaled = pd.DataFrame(scaler.fit_transform(X), columns=X.columns)
+    X_scaled = scaler.fit_transform(X)
 
     # Boxplot après scaling
     sns.boxplot(data=X_scaled, ax=axes[1])
