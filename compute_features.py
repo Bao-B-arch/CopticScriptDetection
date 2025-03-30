@@ -4,10 +4,10 @@ import numpy as np
 import pandas as pd
 
 IMAGE_SIZE = 28
+BACKGROUND_COLOR = int(0.3*255)
 
 def mean_grayscale(database: dict, data_size: int, patch_size: int) -> pd.DataFrame:
     shape = IMAGE_SIZE // (patch_size//2) - 1
-    print(f"Computing {shape*shape} patches for each image")
     patch_pairs = np.linspace(0, IMAGE_SIZE, shape + 2).astype(np.uint8)
 
     col = pd.RangeIndex(0, shape)
@@ -40,7 +40,7 @@ def mean_grayscale(database: dict, data_size: int, patch_size: int) -> pd.DataFr
 def population_std(x: pd.Series) -> float:
     return x.std(ddof=0)
 
-def export_features(path: str, database: pd.DataFrame, patch_size: int, factor: int = 10) -> None:
+def export_visual_features(path: str, database: pd.DataFrame, patch_size: int, factor: int = 10) -> None:
 
     shape = IMAGE_SIZE // (patch_size//2) - 1
     if not os.path.exists(path):
@@ -62,7 +62,7 @@ def export_features(path: str, database: pd.DataFrame, patch_size: int, factor: 
 
     for idx, row in distributions.iterrows():
         background = np.zeros(shape=(shape*factor, shape*factor), dtype=np.uint8)
-        background += int(0.3*255)
+        background += BACKGROUND_COLOR
         curr_path = os.path.join(path, idx)
         if not os.path.exists(curr_path):
             os.makedirs(curr_path)

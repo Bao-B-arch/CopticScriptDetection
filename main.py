@@ -1,9 +1,5 @@
 from timeit import default_timer as timer
-from typing import Tuple
-import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
 
 # Scikit learn setting to export data as pandas
 from sklearn import set_config
@@ -16,13 +12,13 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 
 # Importation des outils de validation
-from sklearn.metrics import accuracy_score, matthews_corrcoef, confusion_matrix
 from sklearn.model_selection import train_test_split
 
 # Importation du module de chargement des données
 import data_loading
 import compute_features
-import graph_utils
+import reports
+from utils import Sets
 
 set_config(transform_output = "pandas")
 
@@ -34,150 +30,111 @@ RANDOM_STATE = 0
 PATCH_SIZE = 10
 FACTOR_SIZE_EXPORT = 100
 
-def pretty_format(table):
-    return np.array2string(table, formatter={'float_kind': lambda x: f'{x:.1f}'})
-
 if __name__ == "__main__":
+    main_start_timer = timer()
+
     # Chargement des données depuis la base
+    print("LOADING DATABASE: ", end = '\0')
+    start_timer = timer()
     raw_data, data_size = data_loading.load_database(DATABASE_PATH)
+    end_timer = timer()
+    print(f"Lasted {end_timer - start_timer:.2f} seconds.")
+    print("-"*NUMBER_SECTION_DEL)
 
     # Calcul de la moyenne des niveaux de gris des images
-    print("FEATURES COMPUTATION:")
-    start = timer()
+    print("FEATURES COMPUTATION: ", end = '\0')
+    start_timer = timer()
     means_data = compute_features.mean_grayscale(raw_data, data_size, PATCH_SIZE)
-    compute_features.export_features(EXPORT_PATH, means_data, PATCH_SIZE, FACTOR_SIZE_EXPORT)
-    end = timer()
-    print(end - start)
+    end_timer = timer()
+    print(f"Lasted {end_timer - start_timer:.2f} seconds.")
     print("-"*NUMBER_SECTION_DEL)
 
     # Nettoyage des données
     # Suppression des valeurs manquantes
+    print("FEATURES CLEANING: ", end = '\0')
+    start_timer = timer()
     means_data = means_data.dropna(axis=0)
-
-    # Définition de la variable cible (lettre correspondante)
-    y = means_data.loc[:, "Letter"]
-    classes = np.unique(y)
-
-    print("TARGET DESCRIPTION:")
-    for index, value in y.value_counts().items():
-        print(f"{index}:\t\t{value}")
+    end_timer = timer()
+    print(f"Lasted {end_timer - start_timer:.2f} seconds.")
     print("-"*NUMBER_SECTION_DEL)
 
     # Définition des caractéristiques (features) utilisées pour la classification
-    X = means_data.loc[:, means_data.columns != "Letter"]
-    means_features = X.columns
-
-    print(
-        f"FEATURE NAME:\n\
-{means_features}\n\
-{'-'*NUMBER_SECTION_DEL}"
+    # Définition de la variable cible (lettre correspondante)
+    db_noscaling = Sets(
+        X = means_data.loc[:, means_data.columns != "Letter"],
+        y = means_data.loc[:, "Letter"]
     )
 
-    graph_utils.visualize_scaling(X)
+    # Application d'un scaling standard sur les données
+    print("FEATURES SCALING: ", end = '\0')
+    start_timer = timer()
+    scaler = StandardScaler()
+    db_scaled = Sets(
+        X = scaler.fit_transform(db_noscaling.X),
+        y = db_noscaling.y
+    )
+    end_timer = timer()
+    print(f"Lasted {end_timer - start_timer:.2f} seconds.")
     print("-"*NUMBER_SECTION_DEL)
 
-    scaler = StandardScaler()
-    X = scaler.fit_transform(X)
-
     # Séparation des données en ensembles d'entraînement et de test (80% - 20%)
+    print("FEATURES SPLITTING: ", end = '\0')
+    start_timer = timer()
     train_X, test_X, train_y, test_y = train_test_split(
-        X, y, test_size=0.2, random_state=RANDOM_STATE, stratify=y
+        db_scaled.X,
+        db_scaled.y,
+        test_size=0.2,
+        random_state=RANDOM_STATE,
+        stratify=db_scaled.y
     )
-    print(
-        f"DATA SIZE:\n\
-TOTAL DATA SIZE:\t{len(X)}\n\
-TRAIN SIZE:\t\t{len(train_X)} | POURCENTAGE:{(len(train_X) / len(X) * 100):.2f}%\n\
-TEST SIZE:\t\t{len(test_X)} | POURCENTAGE:{(len(test_X) / len(X) * 100):.2f}%\n\
-{'-'*NUMBER_SECTION_DEL}"
-    )
-
-    f = plt.figure(figsize=(19, 15))
-    plt.matshow(X.corr(), fignum=f.number)
-    plt.xticks(
-        range(X.select_dtypes(['number']).shape[1]),
-        X.select_dtypes(['number']).columns,
-        fontsize=14,
-        rotation=45)
-    plt.yticks(
-        range(X.select_dtypes(['number']).shape[1]),
-        X.select_dtypes(['number']).columns,
-        fontsize=14)
-    cb = plt.colorbar()
-    cb.ax.tick_params(labelsize=14)
-    plt.title('Correlation Matrix', fontsize=16)
-
-    print(
-        f"CORRELATION MATRIX:\n\
-{X.corr()}\n\
-{'-'*NUMBER_SECTION_DEL}"
-    )
-
-    # Visualisation de la répartition des données entre Train et Test
-    df_set = pd.concat([
-        pd.DataFrame({"Letter": train_y}).value_counts(),
-        pd.DataFrame({"Letter": test_y}).value_counts(),
-    ], axis=1, keys=["train", "test"])
-    df_set.plot(kind="bar", stacked=True, color=["steelblue", "red"])
-    plt.title("Number of letters in each dataset")
+    train = Sets(train_X, train_y)
+    test = Sets(test_X, test_y)
+    end_timer = timer()
+    print(f"Lasted {end_timer - start_timer:.2f} seconds.")
+    print("-"*NUMBER_SECTION_DEL)
 
     # Définition et initialisation du modèle de classification Random Forest
     rfc = RandomForestClassifier(random_state=RANDOM_STATE, class_weight="balanced")
     svm = SVC(random_state=RANDOM_STATE, class_weight="balanced")
 
     # Entraînement du modèle sur l'ensemble d'entraînement
-    rfc.fit(train_X, train_y)
-    svm.fit(train_X, train_y)
-
-    # Prédiction sur un échantillon de 5 données aléatoires
-    X_sample = test_X.sample(n=10, random_state=RANDOM_STATE)
-    y_sample = test_y.loc[X_sample.index]
-    prediction_rfc = rfc.predict(X_sample)
-    prediction_svm = svm.predict(X_sample)
-
-    # Visualisation des résultats de prédiction
-    print("EXAMPLE:")
-    print(f"REAL:\t{pretty_format(y_sample.to_numpy())}")
-    print(f"RFC:\t{pretty_format(prediction_rfc)}")
-    print(f"SVM:\t{pretty_format(prediction_svm)}")
+    print("MODEL FITTING: ", end = '\0')
+    start_timer = timer()
+    rfc.fit(train.X, train.y)
+    svm.fit(train.X, train.y)
+    end_timer = timer()
+    print(f"Lasted {end_timer - start_timer:.2f} seconds.")
     print("-"*NUMBER_SECTION_DEL)
 
-    # Vérifier à partir de score la qualité du modèle (avec l'ensemble de test)
-    rfc_pred_X = rfc.predict(test_X)
-    svm_pred_X = svm.predict(test_X)
+    # Generation d'un report synthétisant les données, les modèles et leur performances
+    print("GENERATING REPORT: ", end = '\0')
+    start_timer = timer()
+    reports.generate_report(
+        data_size,
+        db_noscaling,
+        db_scaled,
+        train,
+        test,
+        {"RFC": rfc, "SVM": svm},
+        RANDOM_STATE
+    )
+    end_timer = timer()
+    print(f"Lasted {end_timer - start_timer:.2f} seconds.")
+    print("-"*NUMBER_SECTION_DEL)
 
-    ## accuracy
-    acc_rfc = accuracy_score(test_y, rfc_pred_X)
-    acc_svm = accuracy_score(test_y, svm_pred_X)
+    # Exportation des données pour visualization
+    print("EXPORTING DATA: ", end = '\0')
+    start_timer = timer()
+    compute_features.export_visual_features(EXPORT_PATH, means_data, PATCH_SIZE, FACTOR_SIZE_EXPORT)
+    end_timer = timer()
+    print(f"Lasted {end_timer - start_timer:.2f} seconds.")
+    print("-"*NUMBER_SECTION_DEL)
 
-    ## matthews corrcoeff
-    mcc_rfc = matthews_corrcoef(test_y, rfc_pred_X)
-    mcc_svm = matthews_corrcoef(test_y, svm_pred_X)
-
-    ## confusion matrix
-    cm_rfc = confusion_matrix(test_y, rfc_pred_X, labels=classes, normalize="true")
-    cm_svm = confusion_matrix(test_y, svm_pred_X, labels=classes, normalize="true")
-
-    # Affichage des performances du modèle
-    print("METRICS:")
-    print(f"ACC RFC:\t{acc_rfc:.2f}")
-    print(f"ACC SVM:\t{acc_svm:.2f}")
-    print(f"MCC RFC:\t{mcc_rfc:.2f}")
-    print(f"MCC SVM:\t{mcc_svm:.2f}")
-    print('-'*NUMBER_SECTION_DEL)
-
-    plt.figure()
-    sns.heatmap(cm_rfc, xticklabels=classes, yticklabels=classes)
-    plt.xlabel("Predicted")
-    plt.ylabel("Actual")
-    plt.title("Confusion Matrix for RFC")
-
-    plt.figure()
-    sns.heatmap(cm_svm, xticklabels=classes, yticklabels=classes)
-    plt.xlabel("Predicted")
-    plt.ylabel("Actual")
-    plt.title("Confusion Matrix for SVM")
+    main_end_timer = timer()
+    print(f"Script lasted {main_end_timer - main_start_timer:.2f} seconds.")
 
     plt.tight_layout()
+    # plt.show()
 
     # TODO : Améliorations futures
     ## Améliorer les classifier

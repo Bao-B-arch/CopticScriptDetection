@@ -4,26 +4,12 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
 
-def mad(data):
-    """
-    Calcul de la Median Absolute Deviation (MAD)
-    
-    Paramètres:
-    data (array-like): Données à analyser
-    
-    Retourne:
-    float: La médiane absolue des écarts
-    """
-    median = np.median(data)
-    mad_value = np.median(np.abs(data - median))
-    return mad_value
-
-def visualize_scaling(X: pd.DataFrame) -> dict:
+def visualize_scaling(data: pd.DataFrame) -> dict:
     """
     Visualise l'effet du standard scaling avec détection des outliers via MAD
     
     Paramètres:
-    X (pandas.DataFrame): DataFrame avec les features à visualiser
+    data (pandas.DataFrame): DataFrame avec les features à visualiser
     
     Retourne:
     Graphiques de boxplots et statistiques des outliers
@@ -33,53 +19,48 @@ def visualize_scaling(X: pd.DataFrame) -> dict:
     fig.suptitle("Analyse du Standard Scaling et Détection des Outliers (Méthode MAD)", fontsize=16)
 
     # Boxplot avant scaling
-    sns.boxplot(data=X, ax=axes[0])
+    sns.boxplot(data=data, ax=axes[0])
     axes[0].set_title("Distribution Originale")
 
     # Calcul du scaling
     scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
+    data_scaled = scaler.fit_transform(data)
 
     # Boxplot après scaling
-    sns.boxplot(data=X_scaled, ax=axes[1])
+    sns.boxplot(data=data_scaled, ax=axes[1])
     axes[1].set_title('Distribution Après Standard Scaling')
 
-    # Analyse statistique des outliers avec MAD
-    outliers_stats = {}
-    for col in X.columns:
-        # Calcul des outliers avec la méthode MAD
-        median_val = np.median(X[col])
-        mad_val = mad(X[col])
+def visualize_correlation(data: pd.DataFrame) -> None:
 
-        # Seuil standard : points à plus de 3 MAD de la médiane
-        lower_bound = median_val - 3 * mad_val
-        upper_bound = median_val + 3 * mad_val
+    f = plt.figure(figsize=(19, 15))
+    plt.matshow(data.corr(), fignum=f.number)
+    plt.xticks(
+        range(data.select_dtypes(['number']).shape[1]),
+        data.select_dtypes(['number']).columns,
+        fontsize=14,
+        rotation=45)
+    plt.yticks(
+        range(data.select_dtypes(['number']).shape[1]),
+        data.select_dtypes(['number']).columns,
+        fontsize=14)
+    cb = plt.colorbar()
+    cb.ax.tick_params(labelsize=14)
+    plt.title('Correlation Matrix', fontsize=16)
 
-        outliers = X[(X[col] < lower_bound) | (X[col] > upper_bound)]
-        outliers_stats[col] = {
-            'nb_outliers': len(outliers),
-            'percent': len(outliers) / len(X) * 100,
-            'median': median_val,
-            'mad': mad_val,
-            'min_original': X[col].min(),
-            'max_original': X[col].max(),
-            'mean_original': X[col].mean(),
-            'std_original': X[col].std(),
-            'lower_bound': lower_bound,
-            'upper_bound': upper_bound
-        }
+def visualize_train_test_split(train: pd.Series, test: pd.Series) -> None:
 
-    # Affichage des statistiques des outliers
-    print("OUTLIERS (USING MAD):")
-    start = True
-    for col, stats in outliers_stats.items():
-        if start:
-            print(" "*15, end='\0')
-            for stat_name in stats:
-                print(f"|{stat_name:15}", end='\0')
-            start = False
-        print(f"\n{col:15}", end='\0')
-        for _, stat_value in stats.items():
-            print(f"|{stat_value:15.2f}", end='\0')
-    print("\n", end='\0')
-    return outliers_stats
+    df_set = pd.concat([
+        pd.DataFrame({"Letter": train}).value_counts(),
+        pd.DataFrame({"Letter": test}).value_counts(),
+    ], axis=1, keys=["train", "test"])
+
+    df_set.plot(kind="bar", stacked=True, color=["steelblue", "red"])
+    plt.title("Number of letters in each dataset")
+
+def visualize_correlation_matrix(cm: np.ndarray, labels: np.ndarray, model_name: str) -> None:
+
+    plt.figure()
+    sns.heatmap(cm, xticklabels=labels, yticklabels=labels)
+    plt.xlabel("Predicted")
+    plt.ylabel("Actual")
+    plt.title(f"Confusion Matrix for {model_name}")
