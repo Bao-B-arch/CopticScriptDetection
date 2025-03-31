@@ -1,5 +1,4 @@
 from timeit import default_timer as timer
-import matplotlib.pyplot as plt
 
 # Scikit learn setting to export data as pandas
 from sklearn import set_config
@@ -116,7 +115,8 @@ if __name__ == "__main__":
         train,
         test,
         {"RFC": rfc, "SVM": svm},
-        RANDOM_STATE
+        RANDOM_STATE,
+        False
     )
     end_timer = timer()
     print(f"Lasted {end_timer - start_timer:.2f} seconds.")
@@ -132,9 +132,6 @@ if __name__ == "__main__":
 
     main_end_timer = timer()
     print(f"Script lasted {main_end_timer - main_start_timer:.2f} seconds.")
-
-    plt.tight_layout()
-    # plt.show()
 
     # TODO : Améliorations futures
     ## Améliorer les classifier
