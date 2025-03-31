@@ -1,3 +1,5 @@
+import os
+import subprocess
 import yaml
 import numpy as np
 import matplotlib.pyplot as plt
@@ -59,9 +61,19 @@ def generate_report(
         ## confusion matrix
         cm = confusion_matrix(test.y, pred_x, labels=labels, normalize="true")
         cms[model_name] = cm
-        
-    with open("report.yaml", "w", encoding="utf-8") as file:
+    
+    if not os.path.exists("report"):
+        os.makedirs("report")
+    with open("report/report.yaml", "w", encoding="utf-8") as file:
         yaml.dump(report, file)
+    
+    test_quarto = subprocess.run(["quarto", "--version"], stdout = subprocess.DEVNULL)
+    if test_quarto.returncode == 0:
+        subprocess.run(["quarto", "render", ".\coptic_report.qmd", 
+                        "--to", "pdf,revealjs", 
+                        "--output-dir", "report\quarto"], 
+                        stdout = subprocess.DEVNULL,
+                        stderr = subprocess.DEVNULL)
 
     # Génération des graphes
     visualize_scaling(db_noscaling.X)

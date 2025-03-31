@@ -1,6 +1,6 @@
-Images_Traitees
-export
-report.yaml
+Images_Traitees/
+export/
+report/
 *.feather
 
 # Byte-compiled / optimized / DLL files
@@ -177,3 +177,5 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+/.quarto/

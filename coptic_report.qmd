@@ -1,0 +1,54 @@
+---
+title: "Coptic OCR"
+author: "Antenainaskara"
+echo: False
+format: 
+    pdf:
+        toc: true
+        number-sections: true
+        colorlinks: true
+    revealjs: default
+jupyter: python3
+---
+
+```{python}
+import yaml
+
+with open("report/report.yaml", "r") as file:
+    data = yaml.safe_load(file)
+
+database_desc = data["DATABASE_DESCRIPTION"]
+```
+
+## Description de la base de données
+
+```{python}
+train_percent = f"{database_desc['TRAIN_SIZE']['percent']:.2f}"
+test_percent = f"{database_desc['TEST_SIZE']['percent']:.2f}"
+```
+
+### Images
+
+La base de données se compose d'images `28x28` en nuances de gris.
+
+| Jeu de données | Nombre d'images |
+|--|--|
+| TOTAL | `{python} database_desc["SIZE"]`
+| TRAIN | `{python} database_desc["TRAIN_SIZE"]["value"]` (`{python} train_percent`%)
+| TEST | `{python} database_desc["TEST_SIZE"]["value"]` (`{python} test_percent`%)
+
+### Features
+
+Chaque image est découpée en `{python} database_desc["NB_PATCHES"]` patches et la moyenne de chaque patch est retenue donnant `{python} database_desc["NB_PATCHES"]` features par image.
+
+Exemple pour une lettre `qima`:
+
+::: {layout-ncol=2}
+
+![lettre](./Images_Traitees/qima/objet_1_585.png){#fig-letter width=40%}
+
+![features](./export/qima/example_qima.png){#fig-features width=40%}
+
+:::
+
+## Transformation des données

@@ -6,3 +6,4 @@ matplotlib
 seaborn
 pyyaml
 pyarrow
+jupyter
