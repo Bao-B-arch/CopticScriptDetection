@@ -1,6 +1,7 @@
 Images_Traitees
 export
 report.yaml
+*.feather
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

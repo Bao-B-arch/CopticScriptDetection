@@ -1,4 +1,7 @@
+import os
 from timeit import default_timer as timer
+
+import pandas as pd
 
 # Scikit learn setting to export data as pandas
 from sklearn import set_config
@@ -25,37 +28,51 @@ set_config(transform_output = "pandas")
 NUMBER_SECTION_DEL = 50  # Nombre de séparateurs pour l'affichage
 DATABASE_PATH = "Images_Traitees"  # Chemin de la base de données
 EXPORT_PATH = "export"  # Chemin de la base de données
+SAVED_DATABASE_PATH = "database.feather"
 RANDOM_STATE = 0
 PATCH_SIZE = 10
 FACTOR_SIZE_EXPORT = 100
 
+# Option pour changer le comportement du scripts
+FORCE_COMPUTATION = False
+FORCE_PLOT = False
+
 if __name__ == "__main__":
     main_start_timer = timer()
 
-    # Chargement des données depuis la base
-    print("LOADING DATABASE: ", end = '\0')
-    start_timer = timer()
-    raw_data, data_size = data_loading.load_database(DATABASE_PATH)
-    end_timer = timer()
-    print(f"Lasted {end_timer - start_timer:.2f} seconds.")
-    print("-"*NUMBER_SECTION_DEL)
+    if (not FORCE_COMPUTATION) & os.path.isfile(SAVED_DATABASE_PATH):
+        print("LOADING DATABASE: ", end = '\0')
+        start_timer = timer()
+        means_data = pd.read_feather(SAVED_DATABASE_PATH)
+        data_size = means_data.index.size
+        end_timer = timer()
+        print(f"Lasted {end_timer - start_timer:.2f} seconds.")
+        print("-"*NUMBER_SECTION_DEL)
+    else:
 
-    # Calcul de la moyenne des niveaux de gris des images
-    print("FEATURES COMPUTATION: ", end = '\0')
-    start_timer = timer()
-    means_data = compute_features.mean_grayscale(raw_data, data_size, PATCH_SIZE)
-    end_timer = timer()
-    print(f"Lasted {end_timer - start_timer:.2f} seconds.")
-    print("-"*NUMBER_SECTION_DEL)
+        print("LOADING DATABASE: ", end = '\0')
+        start_timer = timer()
+        raw_data, data_size = data_loading.load_database(DATABASE_PATH)
+        end_timer = timer()
+        print(f"Lasted {end_timer - start_timer:.2f} seconds.")
+        print("-"*NUMBER_SECTION_DEL)
 
-    # Nettoyage des données
-    # Suppression des valeurs manquantes
-    print("FEATURES CLEANING: ", end = '\0')
-    start_timer = timer()
-    means_data = means_data.dropna(axis=0)
-    end_timer = timer()
-    print(f"Lasted {end_timer - start_timer:.2f} seconds.")
-    print("-"*NUMBER_SECTION_DEL)
+        # Calcul de la moyenne des niveaux de gris des images
+        print("FEATURES COMPUTATION: ", end = '\0')
+        start_timer = timer()
+        means_data = compute_features.mean_grayscale(raw_data, data_size, PATCH_SIZE)
+        end_timer = timer()
+        print(f"Lasted {end_timer - start_timer:.2f} seconds.")
+        print("-"*NUMBER_SECTION_DEL)
+
+        # Nettoyage des données
+        # Suppression des valeurs manquantes
+        print("FEATURES CLEANING: ", end = '\0')
+        start_timer = timer()
+        means_data = means_data.dropna(axis=0)
+        end_timer = timer()
+        print(f"Lasted {end_timer - start_timer:.2f} seconds.")
+        print("-"*NUMBER_SECTION_DEL)
 
     # Définition des caractéristiques (features) utilisées pour la classification
     # Définition de la variable cible (lettre correspondante)
@@ -116,7 +133,7 @@ if __name__ == "__main__":
         test,
         {"RFC": rfc, "SVM": svm},
         RANDOM_STATE,
-        False
+        FORCE_PLOT
     )
     end_timer = timer()
     print(f"Lasted {end_timer - start_timer:.2f} seconds.")
@@ -126,6 +143,8 @@ if __name__ == "__main__":
     print("EXPORTING DATA: ", end = '\0')
     start_timer = timer()
     compute_features.export_visual_features(EXPORT_PATH, means_data, PATCH_SIZE, FACTOR_SIZE_EXPORT)
+    if FORCE_COMPUTATION | (not os.path.isfile(SAVED_DATABASE_PATH)):
+        compute_features.export_database(SAVED_DATABASE_PATH, means_data)
     end_timer = timer()
     print(f"Lasted {end_timer - start_timer:.2f} seconds.")
     print("-"*NUMBER_SECTION_DEL)
@@ -136,4 +155,3 @@ if __name__ == "__main__":
     # TODO : Améliorations futures
     ## Améliorer les classifier
     ## Implémenter une approche par Bootstrap pour la validation
-    ## Exporter les features pour gain de temps lors du calcul

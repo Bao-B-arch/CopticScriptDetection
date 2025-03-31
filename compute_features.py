@@ -10,7 +10,7 @@ def mean_grayscale(database: dict, data_size: int, patch_size: int) -> pd.DataFr
     shape = IMAGE_SIZE // (patch_size//2) - 1
     patch_pairs = np.linspace(0, IMAGE_SIZE, shape + 2).astype(np.uint8)
 
-    col = pd.RangeIndex(0, shape)
+    col = pd.RangeIndex(0, shape).astype("string")
     col.append(pd.Index(["Letter"]))
     df = pd.DataFrame(columns=col, index=pd.RangeIndex(0, data_size))
 
@@ -31,7 +31,7 @@ def mean_grayscale(database: dict, data_size: int, patch_size: int) -> pd.DataFr
                     patch = img[row_l:row_h, col_l:col_h]
                     mean = np.mean(patch)
 
-                    df.loc[idx, patch_idx] = mean
+                    df.loc[idx, f"{patch_idx}"] = mean
                     patch_idx += 1
             idx += 1
 
@@ -69,8 +69,8 @@ def export_visual_features(path: str, database: pd.DataFrame, patch_size: int, f
         curr_path = os.path.join(curr_path, f"avg_{idx}.png")
 
         for patch_idx, value in row.groupby(level=0):
-            x_center = (patch_idx // shape) * factor + factor // 2
-            y_center = (patch_idx % shape) * factor + factor // 2
+            x_center = (int(patch_idx) // shape) * factor + factor // 2
+            y_center = (int(patch_idx) % shape) * factor + factor // 2
 
             mean = value.loc[(patch_idx, "mean")]
             std = value.loc[(patch_idx, "population_std")]
@@ -84,3 +84,6 @@ def export_visual_features(path: str, database: pd.DataFrame, patch_size: int, f
             background[x_start:x_stop, y_start:y_stop] = square.astype(np.uint8)
 
         cv2.imwrite(curr_path, background)
+
+def export_database(path: str, database: pd.DataFrame) -> None:
+    database.to_feather(path)
