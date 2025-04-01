@@ -32,7 +32,7 @@ def generate_report(
         "NB_PATCHES": len(db_scaled.X.columns),
         "FEATURES": train.X.columns.to_list(),
         "CORRELATION_FEATURES": db_scaled.X.corr().to_dict(),
-        "OUTLIERS ANALYSIS": outlier_analysis(db_noscaling.X).to_dict(),
+        "OUTLIERS_ANALYSIS": outlier_analysis(db_noscaling.X).to_dict(),
     }
 
     # Prédiction sur un échantillon de 5 données aléatoires

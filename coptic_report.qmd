@@ -15,6 +15,7 @@ format:
     revealjs:
         toc-depth: 2
         toc-title: Table des Matières
+        slide-level: 3
 jupyter: python3
 ---
 
@@ -49,7 +50,13 @@ La base de données se compose d'images `28x28` en nuances de gris.
 | TRAIN | `{python} database_desc["TRAIN_SIZE"]["value"]` (`{python} train_percent`%)
 | TEST | `{python} database_desc["TEST_SIZE"]["value"]` (`{python} test_percent`%)
 
----
+### Valeurs cibles
+
+::: {.content-visible when-format="pdf"}
+
+On dénombre `32` lettres dans l'alphabet copte. Deux, `eta` et `sampi`, ont été retirées car n'ayant pas assez d'images associées (respectivement `7` et `2`).
+
+:::
 
 ![distribution des lettres](./graphs/split.svg){#fig-split}
 
@@ -75,3 +82,39 @@ Exemple pour une lettre `qima`:
 :::
 
 ## Transformation des données
+
+Afin d'éviter des problèmes numériques et des imprécisions lors de l'apprentissage, il est nécessaire de transformer les données pour les rapprocher de l'intervale `[-1, 1]`.
+
+Il sera utilisé un Standard Scaler: $z = \frac{x - m}{s}$ avec $m$ la moyenne et $s$ l'écart-type.
+
+### Analyse de viabilité du scaler
+
+Un Standard Scaler est simple mais sensible aux valeurs aberrantes. Une analyse de la proportion de potentielles valeurs aberrantes est effectuée afin de vérifier si ce scaler est correct.
+
+![Analyse des outliers](./graphs/scaling.svg){#fig-scaling}
+
+::: {.content-visible when-format="revealjs"}
+
+---
+
+:::
+
+::: {.content-visible when-format="pdf"}
+
+\newpage
+
+:::
+
+```{python}
+nb_outliers = features_desc["OUTLIERS_ANALYSIS"]["nb_outliers"]
+pc_outliers = features_desc["OUTLIERS_ANALYSIS"]["percent"]
+
+import pandas as pd
+df_outlier = pd.DataFrame({"nb_outliers": nb_outliers, "percent": pc_outliers})
+df_outlier = df_outlier.sort_values(by="nb_outliers")
+print(df_outlier)
+
+features_over = df_outlier.index[df_outlier.loc[:, "percent"] > 5.0]
+```
+
+Bien qu'il y ait `{python} len(features_over)` features dépassant les `5%` d'outliers, on considère que la transformation des données est valide.
