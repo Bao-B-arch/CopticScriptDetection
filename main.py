@@ -36,6 +36,7 @@ FACTOR_SIZE_EXPORT = 100
 # Option pour changer le comportement du scripts
 FORCE_COMPUTATION = False
 FORCE_PLOT = False
+FORCE_REPORT = True
 
 if __name__ == "__main__":
     main_start_timer = timer()
@@ -133,7 +134,8 @@ if __name__ == "__main__":
         test,
         {"RFC": rfc, "SVM": svm},
         RANDOM_STATE,
-        FORCE_PLOT
+        FORCE_PLOT,
+        FORCE_REPORT
     )
     end_timer = timer()
     print(f"Lasted {end_timer - start_timer:.2f} seconds.")

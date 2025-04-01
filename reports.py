@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score, matthews_corrcoef, confusion_matrix
 
 from utils import Sets, outlier_analysis
-from graph_utils import visualize_scaling, visualize_correlation, visualize_train_test_split, visualize_correlation_matrix
+from graph_utils import visualize_scaling, visualize_correlation, visualize_train_test_split, visualize_confusion_matrix
 
 def generate_report(
         data_size: int,
@@ -16,7 +16,8 @@ def generate_report(
         test: Sets,
         models: dict,
         random_state: int,
-        show: bool = False
+        show: bool = False,
+        rep: bool = False
 ) -> None:
 
     report = {}
@@ -24,12 +25,12 @@ def generate_report(
         "SIZE": data_size, 
         "TRAIN_SIZE": {"value": len(train.X), "percent": len(train.X) / data_size * 100},
         "TEST_SIZE": {"value": len(test.X), "percent": len(test.X) / data_size * 100},
-        "NB_PATCHES": len(db_scaled.X.columns)
+        "TARGET": db_scaled.y.value_counts().to_dict(),
     }
 
-    report["MODEL_DESCRIPTION"] = {
+    report["FEATURES_DESCRIPTION"] = {
+        "NB_PATCHES": len(db_scaled.X.columns),
         "FEATURES": train.X.columns.to_list(),
-        "TARGET": db_scaled.y.value_counts().to_dict(),
         "CORRELATION_FEATURES": db_scaled.X.corr().to_dict(),
         "OUTLIERS ANALYSIS": outlier_analysis(db_noscaling.X).to_dict(),
     }
@@ -38,12 +39,12 @@ def generate_report(
     sample_x = test.X.sample(n=10, random_state=random_state)
     sample_y = test.y.loc[sample_x.index]
 
-    report["PREDICTION EXEMPLE"] = {
+    report["PREDICTION_EXEMPLE"] = {
         "REAL": sample_y.to_list()
     }
     for model_name, model in models.items():
         pred = model.predict(sample_x)
-        report["PREDICTION EXEMPLE"][model_name] = pred.tolist()
+        report["PREDICTION_EXEMPLE"][model_name] = pred.tolist()
 
     # Vérifier à partir de score la qualité du modèle (avec l'ensemble de test)
     labels = np.unique(db_scaled.y)
@@ -61,26 +62,28 @@ def generate_report(
         ## confusion matrix
         cm = confusion_matrix(test.y, pred_x, labels=labels, normalize="true")
         cms[model_name] = cm
+
+    # Génération des graphes
+    if not os.path.exists("graphs"):
+        os.makedirs("graphs")
+    visualize_scaling(db_noscaling.X)
+    visualize_correlation(db_scaled.X)
+    visualize_train_test_split(train.y, test.y)
+    for model_name, cm in cms.items():
+        visualize_confusion_matrix(cm, labels, model_name)
+
+    plt.tight_layout()
+    if show: plt.show()
     
     if not os.path.exists("report"):
         os.makedirs("report")
     with open("report/report.yaml", "w", encoding="utf-8") as file:
         yaml.dump(report, file)
-    
+
     test_quarto = subprocess.run(["quarto", "--version"], stdout = subprocess.DEVNULL)
-    if test_quarto.returncode == 0:
+    if rep & (test_quarto.returncode == 0):
         subprocess.run(["quarto", "render", ".\coptic_report.qmd", 
                         "--to", "pdf,revealjs", 
                         "--output-dir", "report\quarto"], 
                         stdout = subprocess.DEVNULL,
                         stderr = subprocess.DEVNULL)
-
-    # Génération des graphes
-    visualize_scaling(db_noscaling.X)
-    visualize_correlation(db_scaled.X)
-    visualize_train_test_split(train.y, test.y)
-    for model_name, cm in cms.items():
-        visualize_correlation_matrix(cm, labels, model_name)
-
-    plt.tight_layout()
-    if show: plt.show()

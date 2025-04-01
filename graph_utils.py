@@ -29,6 +29,7 @@ def visualize_scaling(data: pd.DataFrame) -> dict:
     # Boxplot après scaling
     sns.boxplot(data=data_scaled, ax=axes[1])
     axes[1].set_title('Distribution Après Standard Scaling')
+    plt.savefig("graphs/scaling.svg")
 
 def visualize_correlation(data: pd.DataFrame) -> None:
 
@@ -46,6 +47,7 @@ def visualize_correlation(data: pd.DataFrame) -> None:
     cb = plt.colorbar()
     cb.ax.tick_params(labelsize=14)
     plt.title('Correlation Matrix', fontsize=16)
+    plt.savefig("graphs/correlation.svg")
 
 def visualize_train_test_split(train: pd.Series, test: pd.Series) -> None:
 
@@ -56,11 +58,14 @@ def visualize_train_test_split(train: pd.Series, test: pd.Series) -> None:
 
     df_set.plot(kind="bar", stacked=True, color=["steelblue", "red"])
     plt.title("Number of letters in each dataset")
+    plt.subplots_adjust(bottom=0.25)
+    plt.savefig("graphs/split.svg")
 
-def visualize_correlation_matrix(cm: np.ndarray, labels: np.ndarray, model_name: str) -> None:
+def visualize_confusion_matrix(cm: np.ndarray, labels: np.ndarray, model_name: str) -> None:
 
     plt.figure()
     sns.heatmap(cm, xticklabels=labels, yticklabels=labels)
     plt.xlabel("Predicted")
     plt.ylabel("Actual")
     plt.title(f"Confusion Matrix for {model_name}")
+    plt.savefig(f"graphs/cm_{model_name}.svg")

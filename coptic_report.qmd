@@ -1,15 +1,28 @@
 ---
 title: "Coptic OCR"
+lang: fr
 author: "Antenainaskara"
 echo: False
 format: 
     pdf:
         toc: true
+        toc-depth: 2
+        toc-title: Table des Matières
         number-sections: true
         colorlinks: true
-    revealjs: default
+        default-image-extension: tex
+        fig-pos: 'h'
+    revealjs:
+        toc-depth: 2
+        toc-title: Table des Matières
 jupyter: python3
 ---
+
+::: {.content-visible when-format="pdf"}
+
+\newpage
+
+:::
 
 ```{python}
 import yaml
@@ -18,6 +31,7 @@ with open("report/report.yaml", "r") as file:
     data = yaml.safe_load(file)
 
 database_desc = data["DATABASE_DESCRIPTION"]
+features_desc = data["FEATURES_DESCRIPTION"]
 ```
 
 ## Description de la base de données
@@ -27,8 +41,6 @@ train_percent = f"{database_desc['TRAIN_SIZE']['percent']:.2f}"
 test_percent = f"{database_desc['TEST_SIZE']['percent']:.2f}"
 ```
 
-### Images
-
 La base de données se compose d'images `28x28` en nuances de gris.
 
 | Jeu de données | Nombre d'images |
@@ -37,9 +49,20 @@ La base de données se compose d'images `28x28` en nuances de gris.
 | TRAIN | `{python} database_desc["TRAIN_SIZE"]["value"]` (`{python} train_percent`%)
 | TEST | `{python} database_desc["TEST_SIZE"]["value"]` (`{python} test_percent`%)
 
-### Features
+---
 
-Chaque image est découpée en `{python} database_desc["NB_PATCHES"]` patches et la moyenne de chaque patch est retenue donnant `{python} database_desc["NB_PATCHES"]` features par image.
+![distribution des lettres](./graphs/split.svg){#fig-split}
+
+
+::: {.content-visible when-format="pdf"}
+
+\newpage
+
+:::
+
+## Description des features
+
+Chaque image est découpée en `{python} features_desc["NB_PATCHES"]` patches et la moyenne de chaque patch est retenue donnant `{python} features_desc["NB_PATCHES"]` features par image.
 
 Exemple pour une lettre `qima`:
 
