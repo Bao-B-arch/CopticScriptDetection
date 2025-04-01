@@ -32,9 +32,10 @@ SAVED_DATABASE_PATH = "database.feather"
 RANDOM_STATE = 0
 PATCH_SIZE = 10
 FACTOR_SIZE_EXPORT = 100
+LETTER_TO_REMOVE = ["Sampi", "Eta"]
 
 # Option pour changer le comportement du scripts
-FORCE_COMPUTATION = False
+FORCE_COMPUTATION = True
 FORCE_PLOT = False
 FORCE_REPORT = True
 
@@ -50,7 +51,6 @@ if __name__ == "__main__":
         print(f"Lasted {end_timer - start_timer:.2f} seconds.")
         print("-"*NUMBER_SECTION_DEL)
     else:
-
         print("LOADING DATABASE: ", end = '\0')
         start_timer = timer()
         raw_data, data_size = data_loading.load_database(DATABASE_PATH)
@@ -71,6 +71,11 @@ if __name__ == "__main__":
         print("FEATURES CLEANING: ", end = '\0')
         start_timer = timer()
         means_data = means_data.dropna(axis=0)
+
+        # Retirer les lettres qu'on ne veut pas
+        index_to_remove = means_data.loc[:,"Letter"].isin(LETTER_TO_REMOVE)
+        means_data = means_data[~index_to_remove]
+        data_size = means_data.index.size
         end_timer = timer()
         print(f"Lasted {end_timer - start_timer:.2f} seconds.")
         print("-"*NUMBER_SECTION_DEL)
