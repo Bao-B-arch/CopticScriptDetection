@@ -3,6 +3,16 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
+from matplotlib.colors import Normalize
+
+class MidpointNormalize(Normalize):
+    def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
+        self.midpoint = midpoint
+        Normalize.__init__(self, vmin, vmax, clip)
+
+    def __call__(self, value, clip=None):
+        x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]
+        return np.ma.masked_array(np.interp(value, x, y))
 
 def visualize_scaling(data: pd.DataFrame) -> dict:
     """
@@ -73,7 +83,7 @@ def visualize_confusion_matrix(cm: np.ndarray, labels: np.ndarray, model_name: s
 def visualize_grid_search(grid_search: pd.DataFrame, model_name: str) -> None:
 
     plt.figure()
-    sns.heatmap(grid_search)
+    sns.heatmap(grid_search, cmap=plt.cm.hot, norm=MidpointNormalize(vmin=0.2, midpoint=0.92),)
     plt.xlabel(grid_search.columns.name)
     plt.ylabel(grid_search.index.name)
     plt.title(f"Grid Search for {model_name}")

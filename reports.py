@@ -50,7 +50,10 @@ def generate_report(
 
     # Vérifier à partir de score la qualité du modèle (avec l'ensemble de test)
     labels = np.unique(db_scaled.y)
-    report["METRICS"] = {}
+    report["MODEL_DESCRIPTION"] = {
+        "PARAMS": {},
+        "METRICS": {},
+    }
     cms = {}
     for model_name, model in models.items():
         pred_x = model.predict(test.X)
@@ -59,7 +62,8 @@ def generate_report(
         ## matthews corrcoeff
         mcc = matthews_corrcoef(test.y, pred_x)
 
-        report["METRICS"][model_name] = {"ACCURACY": acc, "MCC": float(mcc)}
+        report["MODEL_DESCRIPTION"]["METRICS"][model_name] = {"ACCURACY": acc, "MCC": float(mcc)}
+        report["MODEL_DESCRIPTION"]["PARAMS"][model_name] = model.get_params()
 
         ## confusion matrix
         cm = confusion_matrix(test.y, pred_x, labels=labels, normalize="true")

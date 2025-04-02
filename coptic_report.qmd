@@ -33,7 +33,8 @@ with open("report/report.yaml", "r") as file:
 
 database_desc = data["DATABASE_DESCRIPTION"]
 features_desc = data["FEATURES_DESCRIPTION"]
-metrics_desc = data["METRICS"]
+metrics_desc = data["MODEL_DESCRIPTION"]["METRICS"]
+params_desc = data["MODEL_DESCRIPTION"]["PARAMS"]
 ```
 
 ## Description de la base de données
@@ -123,17 +124,57 @@ df_outlier = df_outlier.sort_values(by="nb_outliers", ascending=False)
 df_outlier.index.name = "features"
 
 table = df_outlier.head()
-print(table)
 features_over = df_outlier.index[df_outlier.loc[:, "percent"] > 5.0]
 ```
 
 Bien qu'il y ait `{python} len(features_over)` features dépassant les `5%` d'outliers, on considère que la transformation des données est valide.
 
+```{python} 
+table
+```
+
+
+## Recherche des hyper paramètres
+
+On considère deux modèles, un SVM et un Random Forest. Actuellement on essaie d'optimiser les hyper paramètres uniquement du SVM. On étudie pour cela deux hyper paramètres `C` et `gamma`.
+
+### C
+
+`C` représente la marge d'erreur que l'on autorise. S'il est petit, alors on autorise des erreurs de classification. Au contraire, avec une grande valeur, on est plus strict mais avec un risque d'overfitting
+
+### Gamma
+
+`Gamma` représente la distance à laquelle un élément éloigné a une influence sur les vecteurs de support. Si `gamma` est faible alors les éléments éloigné auront une influence, si élevé, seuls les éléments proches auront une influence.
+
+### Résultats
+
+En utilisant un shuffle split stratifié, on obtient les paramètres optimaux suivants:
+
+| C | Gamma |
+|---|---|
+|`{python} params_desc['SVM']['C']` | `{python} params_desc['SVM']['gamma']` |
+
 ## Résultats de l'entrainement
 
-On considère deux modèles, un SVM et un Random Forest. Après apprentissage et sans chercher à optimiser les hyperparamètres des modèles on trouve:
+ Après apprentissage on trouve:
 
 | Modèle | Accuracy | Matthews Correlation Coefficient |
 |---|---|---|
 |Random Forest | `{python} f"{metrics_desc['RFC']['ACCURACY']:.2f}"` | `{python} f"{metrics_desc['RFC']['MCC']:.2f}"` |
 |SVM | `{python} f"{metrics_desc['SVM']['ACCURACY']:.2f}"` | `{python} f"{metrics_desc['SVM']['MCC']:.2f}"` |
+
+### Matrices de confusion
+
+::: {layout-ncol=2}
+
+![RFC](./graphs/cm_RFC.svg){#fig-cm_rfc}
+
+![SVM](./graphs/cm_SVM.svg){#fig-cm_svm}
+
+:::
+
+## Exemple de prédictions
+
+```{python}
+pd.DataFrame(data["PREDICTION_EXEMPLE"])
+```

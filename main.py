@@ -35,10 +35,10 @@ RANDOM_STATE = 0
 TEST_TRAIN_RATIO = 0.2
 PATCH_SIZE = 10
 FACTOR_SIZE_EXPORT = 100
-LETTER_TO_REMOVE = ["Sampi", "Eta", "Psi", "Ksi"]
+LETTER_TO_REMOVE = ["Sampi", "Eta", "Psi", "Ksi", "Zeta"]
 
 # Option pour changer le comportement du scripts
-FORCE_COMPUTATION = False
+FORCE_COMPUTATION = True
 FORCE_PLOT = False
 FORCE_REPORT = True
 
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     start_timer = timer()
     index_to_remove = means_data.loc[:,"Letter"].isin(LETTER_TO_REMOVE)
     removed_means_data = means_data[~index_to_remove]
-    data_size = means_data.index.size
+    data_size = removed_means_data.index.size
     end_timer = timer()
     print(f"Lasted {end_timer - start_timer:.2f} seconds.")
     print("-"*NUMBER_SECTION_DEL)
@@ -127,13 +127,13 @@ if __name__ == "__main__":
     rfc = RandomForestClassifier(random_state=RANDOM_STATE, class_weight="balanced")
     svm = SVC(random_state=RANDOM_STATE, class_weight="balanced", cache_size=1000)
 
-    print("GRID SEARCH: ", end = '\0')
+    print("HYPER PARAMETERS TUNNING: ", end = '\0')
     start_timer = timer()
     param_grid = {
-        "C": np.logspace(2, 10, 9), 
-        "gamma": np.logspace(-7, 1, 9)
+        "C": np.logspace(4, 10, 7).tolist(), 
+        "gamma": np.logspace(-7, 0, 8).tolist()
     }
-    
+
     cv = StratifiedShuffleSplit(n_splits=5, test_size=TEST_TRAIN_RATIO, random_state=RANDOM_STATE)
     grid_svm = GridSearchCV(svm,
                             return_train_score=True,
@@ -156,6 +156,7 @@ if __name__ == "__main__":
     # Entraînement du modèle sur l'ensemble d'entraînement
     print("MODEL FITTING: ", end = '\0')
     start_timer = timer()
+    svm = SVC(random_state=RANDOM_STATE, class_weight="balanced", cache_size=1000, **grid_fit.best_params_)
     svm.fit(train.X, train.y)
     rfc.fit(train.X, train.y)
     end_timer = timer()
