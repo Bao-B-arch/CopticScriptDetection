@@ -1,6 +1,7 @@
 import os
 from timeit import default_timer as timer
 
+import numpy as np
 import pandas as pd
 
 # Scikit learn setting to export data as pandas
@@ -14,11 +15,12 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 
 # Importation des outils de validation
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, StratifiedShuffleSplit, GridSearchCV
 
 # Importation du module de chargement des données
 import data_loading
 import compute_features
+from graph_utils import visualize_grid_search
 import reports
 from utils import Sets
 
@@ -30,12 +32,13 @@ DATABASE_PATH = "Images_Traitees"  # Chemin de la base de données
 EXPORT_PATH = "export"  # Chemin de la base de données
 SAVED_DATABASE_PATH = "database.feather"
 RANDOM_STATE = 0
+TEST_TRAIN_RATIO = 0.2
 PATCH_SIZE = 10
 FACTOR_SIZE_EXPORT = 100
 LETTER_TO_REMOVE = ["Sampi", "Eta", "Psi", "Ksi"]
 
 # Option pour changer le comportement du scripts
-FORCE_COMPUTATION = True
+FORCE_COMPUTATION = False
 FORCE_PLOT = False
 FORCE_REPORT = True
 
@@ -110,7 +113,7 @@ if __name__ == "__main__":
     train_X, test_X, train_y, test_y = train_test_split(
         db_scaled.X,
         db_scaled.y,
-        test_size=0.2,
+        test_size=TEST_TRAIN_RATIO,
         random_state=RANDOM_STATE,
         stratify=db_scaled.y
     )
@@ -122,13 +125,39 @@ if __name__ == "__main__":
 
     # Définition et initialisation du modèle de classification Random Forest
     rfc = RandomForestClassifier(random_state=RANDOM_STATE, class_weight="balanced")
-    svm = SVC(random_state=RANDOM_STATE, class_weight="balanced")
+    svm = SVC(random_state=RANDOM_STATE, class_weight="balanced", cache_size=1000)
+
+    print("GRID SEARCH: ", end = '\0')
+    start_timer = timer()
+    param_grid = {
+        "C": np.logspace(2, 10, 9), 
+        "gamma": np.logspace(-7, 1, 9)
+    }
+    
+    cv = StratifiedShuffleSplit(n_splits=5, test_size=TEST_TRAIN_RATIO, random_state=RANDOM_STATE)
+    grid_svm = GridSearchCV(svm,
+                            return_train_score=True,
+                            param_grid=param_grid,
+                            scoring="matthews_corrcoef",
+                            cv=cv,
+                            n_jobs = -1)
+
+    grid_fit = grid_svm.fit(train.X, train.y)
+    cv_result = pd.DataFrame(grid_fit.cv_results_)
+    data_gs = cv_result.loc[:, ["param_C", "param_gamma", "mean_test_score"]]
+    end_timer = timer()
+    print(f"Lasted {end_timer - start_timer:.2f} seconds.")
+    print("-"*NUMBER_SECTION_DEL)
+
+    data_gs = data_gs.set_index(["param_C", "param_gamma"]).unstack()
+    data_gs.columns = data_gs.columns.droplevel(level=0)
+    visualize_grid_search(data_gs, "SVC")
 
     # Entraînement du modèle sur l'ensemble d'entraînement
     print("MODEL FITTING: ", end = '\0')
     start_timer = timer()
-    rfc.fit(train.X, train.y)
     svm.fit(train.X, train.y)
+    rfc.fit(train.X, train.y)
     end_timer = timer()
     print(f"Lasted {end_timer - start_timer:.2f} seconds.")
     print("-"*NUMBER_SECTION_DEL)

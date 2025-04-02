@@ -69,3 +69,12 @@ def visualize_confusion_matrix(cm: np.ndarray, labels: np.ndarray, model_name: s
     plt.ylabel("Actual")
     plt.title(f"Confusion Matrix for {model_name}")
     plt.savefig(f"graphs/cm_{model_name}.svg")
+
+def visualize_grid_search(grid_search: pd.DataFrame, model_name: str) -> None:
+
+    plt.figure()
+    sns.heatmap(grid_search)
+    plt.xlabel(grid_search.columns.name)
+    plt.ylabel(grid_search.index.name)
+    plt.title(f"Grid Search for {model_name}")
+    plt.savefig(f"graphs/gs_{model_name}.svg")

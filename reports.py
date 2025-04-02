@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score, matthews_corrcoef, confusion_matrix
 
 from utils import Sets, outlier_analysis
-from graph_utils import visualize_scaling, visualize_correlation, visualize_train_test_split, visualize_confusion_matrix
+from graph_utils import *
 
 def generate_report(
         data_size: int,
