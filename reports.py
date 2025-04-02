@@ -15,6 +15,7 @@ def generate_report(
         train: Sets,
         test: Sets,
         models: dict,
+        letter_to_remove: dict,
         random_state: int,
         show: bool = False,
         rep: bool = False
@@ -23,6 +24,7 @@ def generate_report(
     report = {}
     report["DATABASE_DESCRIPTION"] = {
         "SIZE": data_size, 
+        "LETTER_REMOVED": letter_to_remove,
         "TRAIN_SIZE": {"value": len(train.X), "percent": len(train.X) / data_size * 100},
         "TEST_SIZE": {"value": len(test.X), "percent": len(test.X) / data_size * 100},
         "TARGET": db_scaled.y.value_counts().to_dict(),

@@ -32,7 +32,7 @@ SAVED_DATABASE_PATH = "database.feather"
 RANDOM_STATE = 0
 PATCH_SIZE = 10
 FACTOR_SIZE_EXPORT = 100
-LETTER_TO_REMOVE = ["Sampi", "Eta"]
+LETTER_TO_REMOVE = ["Sampi", "Eta", "Psi", "Ksi"]
 
 # Option pour changer le comportement du scripts
 FORCE_COMPUTATION = True
@@ -71,20 +71,25 @@ if __name__ == "__main__":
         print("FEATURES CLEANING: ", end = '\0')
         start_timer = timer()
         means_data = means_data.dropna(axis=0)
-
-        # Retirer les lettres qu'on ne veut pas
-        index_to_remove = means_data.loc[:,"Letter"].isin(LETTER_TO_REMOVE)
-        means_data = means_data[~index_to_remove]
-        data_size = means_data.index.size
         end_timer = timer()
         print(f"Lasted {end_timer - start_timer:.2f} seconds.")
         print("-"*NUMBER_SECTION_DEL)
 
+    # Retirer les lettres qu'on ne veut pas
+    print("REMOVING LETTERS: ", end = '\0')
+    start_timer = timer()
+    index_to_remove = means_data.loc[:,"Letter"].isin(LETTER_TO_REMOVE)
+    removed_means_data = means_data[~index_to_remove]
+    data_size = means_data.index.size
+    end_timer = timer()
+    print(f"Lasted {end_timer - start_timer:.2f} seconds.")
+    print("-"*NUMBER_SECTION_DEL)
+
     # Définition des caractéristiques (features) utilisées pour la classification
     # Définition de la variable cible (lettre correspondante)
     db_noscaling = Sets(
-        X = means_data.loc[:, means_data.columns != "Letter"],
-        y = means_data.loc[:, "Letter"]
+        X = removed_means_data.loc[:, removed_means_data.columns != "Letter"],
+        y = removed_means_data.loc[:, "Letter"]
     )
 
     # Application d'un scaling standard sur les données
@@ -131,6 +136,8 @@ if __name__ == "__main__":
     # Generation d'un report synthétisant les données, les modèles et leur performances
     print("GENERATING REPORT: ", end = '\0')
     start_timer = timer()
+    
+    removed_letter_counts = means_data.loc[means_data.loc[:, "Letter"].isin(LETTER_TO_REMOVE), "Letter"].value_counts()
     reports.generate_report(
         data_size,
         db_noscaling,
@@ -138,6 +145,7 @@ if __name__ == "__main__":
         train,
         test,
         {"RFC": rfc, "SVM": svm},
+        {l: int(removed_letter_counts[l]) for l in LETTER_TO_REMOVE},
         RANDOM_STATE,
         FORCE_PLOT,
         FORCE_REPORT

@@ -33,6 +33,7 @@ with open("report/report.yaml", "r") as file:
 
 database_desc = data["DATABASE_DESCRIPTION"]
 features_desc = data["FEATURES_DESCRIPTION"]
+metrics_desc = data["METRICS"]
 ```
 
 ## Description de la base de données
@@ -52,9 +53,16 @@ La base de données se compose d'images `28x28` en nuances de gris.
 
 ### Valeurs cibles
 
+```{python}
+list_letter = database_desc["LETTER_REMOVED"]
+
+str_letter = ", ".join([f"`{l}`" for l in list_letter])
+images_letter = ", ".join([f"{l}" for l in list_letter.values()])
+```
+
 ::: {.content-visible when-format="pdf"}
 
-On dénombre `32` lettres dans l'alphabet copte. Deux, `eta` et `sampi`, ont été retirées car n'ayant pas assez d'images associées (respectivement `7` et `2`).
+On dénombre `32` lettres dans l'alphabet copte. `{python} str_letter` ont été retirées car n'ayant pas assez d'images associées (respectivement `{python} images_letter`).
 
 :::
 
@@ -111,10 +119,21 @@ pc_outliers = features_desc["OUTLIERS_ANALYSIS"]["percent"]
 
 import pandas as pd
 df_outlier = pd.DataFrame({"nb_outliers": nb_outliers, "percent": pc_outliers})
-df_outlier = df_outlier.sort_values(by="nb_outliers")
-print(df_outlier)
+df_outlier = df_outlier.sort_values(by="nb_outliers", ascending=False)
+df_outlier.index.name = "features"
 
+table = df_outlier.head()
+print(table)
 features_over = df_outlier.index[df_outlier.loc[:, "percent"] > 5.0]
 ```
 
 Bien qu'il y ait `{python} len(features_over)` features dépassant les `5%` d'outliers, on considère que la transformation des données est valide.
+
+## Résultats de l'entrainement
+
+On considère deux modèles, un SVM et un Random Forest. Après apprentissage et sans chercher à optimiser les hyperparamètres des modèles on trouve:
+
+| Modèle | Accuracy | Matthews Correlation Coefficient |
+|---|---|---|
+|Random Forest | `{python} f"{metrics_desc['RFC']['ACCURACY']:.2f}"` | `{python} f"{metrics_desc['RFC']['MCC']:.2f}"` |
+|SVM | `{python} f"{metrics_desc['SVM']['ACCURACY']:.2f}"` | `{python} f"{metrics_desc['SVM']['MCC']:.2f}"` |
