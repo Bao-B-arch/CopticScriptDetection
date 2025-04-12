@@ -33,7 +33,7 @@ EXPORT_PATH = "export"  # Chemin de la base de données
 SAVED_DATABASE_PATH = "database.feather"
 RANDOM_STATE = 0
 TEST_TRAIN_RATIO = 0.2
-PATCH_SIZE = 10
+PATCH_SIZE = 15
 FACTOR_SIZE_EXPORT = 100
 LETTER_TO_REMOVE = ["Sampi", "Eta", "Psi", "Ksi", "Zeta"]
 
@@ -196,7 +196,3 @@ if __name__ == "__main__":
 
     main_end_timer = timer()
     print(f"Script lasted {main_end_timer - main_start_timer:.2f} seconds.")
-
-    # TODO : Améliorations futures
-    ## Améliorer les classifier
-    ## Implémenter une approche par Bootstrap pour la validation
