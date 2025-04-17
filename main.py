@@ -33,7 +33,7 @@ EXPORT_PATH = "export"  # Chemin de la base de données
 SAVED_DATABASE_PATH = "database.feather"
 RANDOM_STATE = 0
 TEST_TRAIN_RATIO = 0.2
-PATCH_SIZE = 15
+NB_SHAPE = 9 # NOMBRE_DE_PATCH = NB_LIGNE * NB_COLONNE = NB * NB
 FACTOR_SIZE_EXPORT = 100
 LETTER_TO_REMOVE = ["Sampi", "Eta", "Psi", "Ksi", "Zeta"]
 
@@ -64,7 +64,7 @@ if __name__ == "__main__":
         # Calcul de la moyenne des niveaux de gris des images
         print("FEATURES COMPUTATION: ", end = '\0')
         start_timer = timer()
-        means_data = compute_features.mean_grayscale(raw_data, data_size, PATCH_SIZE)
+        means_data = compute_features.mean_grayscale(raw_data, data_size, NB_SHAPE)
         end_timer = timer()
         print(f"Lasted {end_timer - start_timer:.2f} seconds.")
         print("-"*NUMBER_SECTION_DEL)
@@ -167,6 +167,7 @@ if __name__ == "__main__":
     print("GENERATING REPORT: ", end = '\0')
     start_timer = timer()
     
+    compute_features.export_visual_features(EXPORT_PATH, means_data, NB_SHAPE, FACTOR_SIZE_EXPORT)
     removed_letter_counts = means_data.loc[means_data.loc[:, "Letter"].isin(LETTER_TO_REMOVE), "Letter"].value_counts()
     reports.generate_report(
         data_size,
@@ -187,7 +188,6 @@ if __name__ == "__main__":
     # Exportation des données pour visualization
     print("EXPORTING DATA: ", end = '\0')
     start_timer = timer()
-    compute_features.export_visual_features(EXPORT_PATH, means_data, PATCH_SIZE, FACTOR_SIZE_EXPORT)
     if FORCE_COMPUTATION | (not os.path.isfile(SAVED_DATABASE_PATH)):
         compute_features.export_database(SAVED_DATABASE_PATH, means_data)
     end_timer = timer()

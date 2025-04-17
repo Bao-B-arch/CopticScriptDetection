@@ -6,8 +6,8 @@ import pandas as pd
 IMAGE_SIZE = 28
 BACKGROUND_COLOR = int(0.3*255)
 
-def mean_grayscale(database: dict, data_size: int, patch_size: int) -> pd.DataFrame:
-    shape = IMAGE_SIZE // (patch_size//2) - 1
+def mean_grayscale(database: dict, data_size: int, shape: int) -> pd.DataFrame:
+    shape = np.sqrt(shape).astype(np.uint)
     patch_pairs = np.linspace(0, IMAGE_SIZE, shape + 2).astype(np.uint8)
 
     col = pd.RangeIndex(0, shape).astype("string")
@@ -40,9 +40,8 @@ def mean_grayscale(database: dict, data_size: int, patch_size: int) -> pd.DataFr
 def population_std(x: pd.Series) -> float:
     return x.std(ddof=0)
 
-def export_visual_features(path: str, database: pd.DataFrame, patch_size: int, factor: int = 10) -> None:
-
-    shape = IMAGE_SIZE // (patch_size//2) - 1
+def export_visual_features(path: str, database: pd.DataFrame, shape: int, factor: int = 10) -> None:
+    shape = np.sqrt(shape).astype(np.uint)
     if not os.path.exists(path):
         os.makedirs(path)
 
