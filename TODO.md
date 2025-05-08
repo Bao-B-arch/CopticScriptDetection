@@ -19,7 +19,7 @@ Sans les petites lettres|:exclamation: :x:|:bangbang: :x:|:bangbang: :x:|
 ## Tester le(s) modèles final(aux) sur un exemple de texte coptique
 
 - [ ] obtenir les éléments afin de tester le texte
-  - [ ] :bangbang: récupérer les images d'origines
+  - [x] :bangbang: récupérer les images d'origines
   - [ ] :bangbang: récupérer les algorithmes de décomposition d'image faits l'année dernière si disponible
   - [ ] :interrobang: si non disponible écrire un algorithme pour décomposer l'image copte en liste d'image de lettres
 - [ ] tester le(s) modèle(s) sur le texte copte
@@ -28,9 +28,9 @@ Sans les petites lettres|:exclamation: :x:|:bangbang: :x:|:bangbang: :x:|
 
 ## Vérifier la cohérence du projet
 
-- [ ] vérification des données du problème
-  - [ ] :bangbang: vérifier la taille des images d'entrées
-  - [ ] :bangbang: vérifier s'il existe d'autres hypothèses non-vérifiées
+- [x] vérification des données du problème
+  - [x] :bangbang: vérifier la taille des images d'entrées
+  - [x] :bangbang: vérifier s'il existe d'autres hypothèses non-vérifiées
 
 ## Lexique
 

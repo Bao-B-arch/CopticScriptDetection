@@ -8,3 +8,7 @@ pyyaml
 pyarrow
 jupyter
 tabulate
+mypy
+types-PyYAML
+pandas-stubs
+types-seaborn

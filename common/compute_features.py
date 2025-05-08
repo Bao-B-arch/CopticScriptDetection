@@ -1,10 +1,10 @@
 import os
+from pathlib import Path
 import cv2
 import numpy as np
 import pandas as pd
 
-IMAGE_SIZE = 28
-BACKGROUND_COLOR = int(0.3*255)
+from common.utils import BACKGROUND_COLOR, IMAGE_SIZE
 
 def mean_grayscale(database: dict, data_size: int, shape: int) -> pd.DataFrame:
     shape = np.sqrt(shape).astype(np.uint)
@@ -40,16 +40,16 @@ def mean_grayscale(database: dict, data_size: int, shape: int) -> pd.DataFrame:
 def population_std(x: pd.Series) -> float:
     return x.std(ddof=0)
 
-def export_visual_features(path: str, database: pd.DataFrame, shape: int, factor: int = 10) -> None:
+def export_visual_features(path: Path, database: pd.DataFrame, shape: int, factor: int = 10) -> None:
     shape = np.sqrt(shape).astype(np.uint)
     if not os.path.exists(path):
         os.makedirs(path)
 
     for idx, row in database.groupby("Letter").first().iterrows():
-        curr_path = os.path.join(path, idx)
+        curr_path = path / str(idx)
         if not os.path.exists(curr_path):
             os.makedirs(curr_path)
-        curr_path = os.path.join(curr_path, f"example_{idx}.png")
+        curr_path = curr_path / f"example_{idx}.png"
 
         arr = np.reshape(row.to_numpy().astype(np.uint8), (-1, shape))
         zoom_arr = np.kron(arr, np.ones((factor, factor))).astype(np.uint8)
@@ -62,10 +62,10 @@ def export_visual_features(path: str, database: pd.DataFrame, shape: int, factor
     for idx, row in distributions.iterrows():
         background = np.zeros(shape=(shape*factor, shape*factor), dtype=np.uint8)
         background += BACKGROUND_COLOR
-        curr_path = os.path.join(path, idx)
+        curr_path = path / idx
         if not os.path.exists(curr_path):
             os.makedirs(curr_path)
-        curr_path = os.path.join(curr_path, f"avg_{idx}.png")
+        curr_path = curr_path / f"avg_{idx}.png"
 
         for patch_idx, value in row.groupby(level=0):
             x_center = (int(patch_idx) // shape) * factor + factor // 2

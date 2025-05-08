@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from timeit import default_timer as timer
 
 import numpy as np
@@ -8,6 +9,7 @@ import pandas as pd
 from sklearn import set_config
 
 # Importation des outils de préprocessing
+from sklearn.feature_selection import SelectKBest
 from sklearn.preprocessing import StandardScaler
 
 # Importation des modèles de Scikit-learn
@@ -18,22 +20,22 @@ from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split, StratifiedShuffleSplit, GridSearchCV
 
 # Importation du module de chargement des données
-import data_loading
-import compute_features
-from graph_utils import visualize_grid_search
-import reports
-from utils import Sets
+import common.data_loading as data_loading
+import common.compute_features as compute_features
+from common.graph_utils import visualize_grid_search
+import common.reports as reports
+from common.utils import Sets
 
 set_config(transform_output = "pandas")
 
 # Définition de constantes
 NUMBER_SECTION_DEL = 50  # Nombre de séparateurs pour l'affichage
-DATABASE_PATH = "Images_Traitees"  # Chemin de la base de données
-EXPORT_PATH = "export"  # Chemin de la base de données
+DATABASE_PATH = Path("Images_Traitees")  # Chemin de la base de données
+EXPORT_PATH = Path("export")  # Chemin de la base de données
 SAVED_DATABASE_PATH = "database.feather"
 RANDOM_STATE = 0
 TEST_TRAIN_RATIO = 0.2
-NB_SHAPE = 9 # NOMBRE_DE_PATCH = NB_LIGNE * NB_COLONNE = NB * NB
+NB_SHAPE = 25 # NOMBRE_DE_PATCH = NB_LIGNE * NB_COLONNE = NB * NB
 FACTOR_SIZE_EXPORT = 100
 LETTER_TO_REMOVE = ["Sampi", "Eta", "Psi", "Ksi", "Zeta"]
 
@@ -107,15 +109,27 @@ if __name__ == "__main__":
     print(f"Lasted {end_timer - start_timer:.2f} seconds.")
     print("-"*NUMBER_SECTION_DEL)
 
+    print("FEATURES SELECTION: ", end = '\0')
+    start_timer = timer()
+    sfs = SelectKBest(k=4).fit(db_scaled.X, db_scaled.y)
+    db_selected = Sets(
+        sfs.transform(db_scaled.X),
+        db_scaled.y
+    )
+    print(sfs.get_support())
+    end_timer = timer()
+    print(f"Lasted {end_timer - start_timer:.2f} seconds.")
+    print("-"*NUMBER_SECTION_DEL)
+
     # Séparation des données en ensembles d'entraînement et de test (80% - 20%)
     print("FEATURES SPLITTING: ", end = '\0')
     start_timer = timer()
     train_X, test_X, train_y, test_y = train_test_split(
-        db_scaled.X,
-        db_scaled.y,
+        db_selected.X,
+        db_selected.y,
         test_size=TEST_TRAIN_RATIO,
         random_state=RANDOM_STATE,
-        stratify=db_scaled.y
+        stratify=db_selected.y
     )
     train = Sets(train_X, train_y)
     test = Sets(test_X, test_y)

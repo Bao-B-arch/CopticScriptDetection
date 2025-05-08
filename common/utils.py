@@ -1,8 +1,12 @@
-from typing import NamedTuple
+from attrs import define
 import numpy as np
 import pandas as pd
 
-class Sets(NamedTuple):
+IMAGE_SIZE = 28
+BACKGROUND_COLOR = int(0.3*255)
+
+@define
+class Sets:
     X: pd.DataFrame
     y: pd.DataFrame
 
