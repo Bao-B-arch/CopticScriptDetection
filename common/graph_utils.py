@@ -1,3 +1,4 @@
+from matplotlib.path import Path
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -15,7 +16,7 @@ class MidpointNormalize(Normalize):
         x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]
         return np.ma.masked_array(np.interp(value, x, y))
 
-def visualize_scaling(data_before: NDArrayNum, data_after: NDArrayNum) -> None:
+def visualize_scaling(graph_folder: Path, data_before: NDArrayNum, data_after: NDArrayNum) -> None:
     """
     Visualise l'effet du standard scaling avec détection des outliers via MAD
     
@@ -36,17 +37,18 @@ def visualize_scaling(data_before: NDArrayNum, data_after: NDArrayNum) -> None:
     # Boxplot après scaling
     sns.boxplot(data=data_after, ax=axes[1])
     axes[1].set_title('Distribution Après Standard Scaling')
+    plt.savefig(graph_folder / "scaling.svg")
     plt.savefig("graphs/scaling.svg")
 
-def visualize_correlation(data: NDArrayNum, labels: NDArrayStr) -> None:
+def visualize_correlation(graph_folder: Path, data: NDArrayNum, labels: NDArrayStr) -> None:
 
     plt.figure(figsize=(19, 15))
-    print(np.corrcoef(data, rowvar=False).shape)
     sns.heatmap(np.corrcoef(data, rowvar=False), xticklabels=labels, yticklabels=labels)
     plt.title('Correlation Matrix', fontsize=16)
+    plt.savefig(graph_folder / "correlation.svg")
     plt.savefig("graphs/correlation.svg")
 
-def visualize_train_test_split(train: NDArrayStr, test: NDArrayStr) -> None:
+def visualize_train_test_split(graph_folder: Path, train: NDArrayStr, test: NDArrayStr) -> None:
 
     df_set = pd.concat([
         pd.DataFrame({"Letter": train}).value_counts(),
@@ -56,22 +58,25 @@ def visualize_train_test_split(train: NDArrayStr, test: NDArrayStr) -> None:
     df_set.plot(kind="bar", stacked=True, color=["steelblue", "red"])
     plt.title("Number of letters in each dataset")
     plt.subplots_adjust(bottom=0.25)
+    plt.savefig(graph_folder / "split.svg")
     plt.savefig("graphs/split.svg")
 
-def visualize_confusion_matrix(cm: NDArrayNum, labels: NDArrayStr, model_name: str) -> None:
+def visualize_confusion_matrix(graph_folder: Path, cm: NDArrayNum, labels: NDArrayStr, model_name: str) -> None:
 
     plt.figure()
     sns.heatmap(cm, xticklabels=labels, yticklabels=labels)
     plt.xlabel("Predicted")
     plt.ylabel("Actual")
     plt.title(f"Confusion Matrix for {model_name}")
+    plt.savefig(graph_folder / f"cm_{model_name}.svg")
     plt.savefig(f"graphs/cm_{model_name}.svg")
 
-def visualize_grid_search(grid_search: pd.DataFrame, model_name: str) -> None:
+def visualize_grid_search(graph_folder: Path, grid_search: pd.DataFrame, model_name: str) -> None:
 
     plt.figure()
     sns.heatmap(grid_search, cmap=plt.cm.hot, norm=MidpointNormalize(vmin=0.2, midpoint=0.92),)
     plt.xlabel(grid_search.columns.name)
     plt.ylabel(grid_search.index.name)
     plt.title(f"Grid Search for {model_name}")
+    plt.savefig(graph_folder / f"gs_{model_name}.svg")
     plt.savefig(f"graphs/gs_{model_name}.svg")

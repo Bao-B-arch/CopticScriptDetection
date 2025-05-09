@@ -31,31 +31,28 @@ import yaml
 with open("report/report.yaml", "r") as file:
     data = yaml.safe_load(file)
 
-database_desc = data["DATABASE_DESCRIPTION"]
-features_desc = data["FEATURES_DESCRIPTION"]
-metrics_desc = data["MODEL_DESCRIPTION"]["METRICS"]
-params_desc = data["MODEL_DESCRIPTION"]["PARAMS"]
+data = data["states"]
 ```
 
 ## Description de la base de données
 
 ```{python}
-train_percent = f"{database_desc['TRAIN_SIZE']['percent']:.2f}"
-test_percent = f"{database_desc['TEST_SIZE']['percent']:.2f}"
+train_percent = f"{data['train_test_split']['metadata']['TRAIN_SIZE']['percent']:.2f}"
+test_percent = f"{data['train_test_split']['metadata']['TEST_SIZE']['percent']:.2f}"
 ```
 
 La base de données se compose d'images `28x28` en nuances de gris.
 
 | Jeu de données | Nombre d'images |
 |--|--|
-| TOTAL | `{python} database_desc["SIZE"]`
-| TRAIN | `{python} database_desc["TRAIN_SIZE"]["value"]` (`{python} train_percent`%)
-| TEST | `{python} database_desc["TEST_SIZE"]["value"]` (`{python} test_percent`%)
+| TOTAL | `{python} data["train_test_split"]["shape"][0]`
+| TRAIN | `{python} data["train_test_split"]["metadata"]["TRAIN_SIZE"]["value"]` (`{python} train_percent`%)
+| TEST | `{python} data["train_test_split"]["metadata"]["TEST_SIZE"]["value"]` (`{python} test_percent`%)
 
 ### Valeurs cibles
 
 ```{python}
-list_letter = database_desc["LETTER_REMOVED"]
+list_letter = data["after_letter_to_remove"]["metadata"]["LETTER_REMOVED"]
 
 str_letter = ", ".join([f"`{l}`" for l in list_letter])
 images_letter = ", ".join([f"{l}" for l in list_letter.values()])
@@ -78,7 +75,7 @@ On dénombre `32` lettres dans l'alphabet copte. `{python} str_letter` ont été
 
 ## Description des features
 
-Chaque image est découpée en `{python} features_desc["NB_PATCHES"]` patches et la moyenne de chaque patch est retenue donnant `{python} features_desc["NB_PATCHES"]` features par image.
+Chaque image est découpée en `{python} data["initial_data"]["metadata"]["NB_PATCHES"]` patches et la moyenne de chaque patch est retenue donnant `{python} data["initial_data"]["metadata"]["NB_PATCHES"]` features par image.
 
 Exemple pour une lettre `qima`:
 
@@ -115,8 +112,8 @@ Un Standard Scaler est simple mais sensible aux valeurs aberrantes. Une analyse 
 :::
 
 ```{python}
-nb_outliers = features_desc["OUTLIERS_ANALYSIS"]["nb_outliers"]
-pc_outliers = features_desc["OUTLIERS_ANALYSIS"]["percent"]
+nb_outliers = data["initial_data"]["metadata"]["OUTLIERS_ANALYSIS"]["nb_outliers"]
+pc_outliers = data["initial_data"]["metadata"]["OUTLIERS_ANALYSIS"]["percent"]
 
 import pandas as pd
 df_outlier = pd.DataFrame({"nb_outliers": nb_outliers, "percent": pc_outliers})
@@ -152,7 +149,7 @@ En utilisant un shuffle split stratifié, on obtient les paramètres optimaux su
 
 | C | Gamma |
 |---|---|
-|`{python} params_desc['SVM']['C']` | `{python} params_desc['SVM']['gamma']` |
+|`{python} f"{data['grid_search_svm']['metadata']['best_params']['C']:.2f}"` | `{python} f"{data['grid_search_svm']['metadata']['best_params']['gamma']:.2f}"` |
 
 ## Résultats de l'entrainement
 
@@ -160,21 +157,21 @@ En utilisant un shuffle split stratifié, on obtient les paramètres optimaux su
 
 | Modèle | Accuracy | Matthews Correlation Coefficient |
 |---|---|---|
-|Random Forest | `{python} f"{metrics_desc['RFC']['ACCURACY']:.2f}"` | `{python} f"{metrics_desc['RFC']['MCC']:.2f}"` |
-|SVM | `{python} f"{metrics_desc['SVM']['ACCURACY']:.2f}"` | `{python} f"{metrics_desc['SVM']['MCC']:.2f}"` |
+|Random Forest | `{python} f"{data['eval_rfc']['metadata']['accuracy_score']:.2f}"` | `{python} f"{data['eval_rfc']['metadata']['matthews_corrcoef']:.2f}"` |
+|SVM | `{python} f"{data['eval_svm']['metadata']['accuracy_score']:.2f}"` | `{python} f"{data['eval_svm']['metadata']['matthews_corrcoef']:.2f}"` |
 
 ### Matrices de confusion
 
 ::: {layout-ncol=2}
 
-![RFC](./graphs/cm_RFC.svg){#fig-cm_rfc}
+![RFC](./graphs/cm_eval_RFC.svg){#fig-cm_rfc}
 
-![SVM](./graphs/cm_SVM.svg){#fig-cm_svm}
+![SVM](./graphs/cm_eval_SVM.svg){#fig-cm_svm}
 
 :::
 
 ## Exemple de prédictions
 
 ```{python}
-pd.DataFrame(data["PREDICTION_EXEMPLE"])
+pd.DataFrame(data["example"]["metadata"])
 ```

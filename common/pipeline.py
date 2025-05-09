@@ -4,13 +4,13 @@ import functools
 import os
 from pathlib import Path
 import time
-from typing import TYPE_CHECKING, Any, Callable, Concatenate, Dict, List, Optional, Self, Tuple, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Concatenate, Dict, List, Optional, Self, Tuple, TypeVar, cast
 
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator
 from sklearn.metrics import confusion_matrix, matthews_corrcoef, accuracy_score
-from sklearn.model_selection import GridSearchCV, StratifiedShuffleSplit, train_test_split
+from sklearn.model_selection import RandomizedSearchCV, StratifiedShuffleSplit, train_test_split
 import yaml
 
 from common import compute_features, data_loading
@@ -43,7 +43,7 @@ def timer(name: str) -> Callable[[TrackedPipelineMethod], TrackedPipelineMethod]
 
             print(f"{_name}: ", end = '\0')
             start_time = time.perf_counter()
-            res: Union[TrackedPipeline, GridSearchCV] = func(pipeline, **kwargs)
+            res: TrackedPipeline = func(pipeline, **kwargs)
             end_time = time.perf_counter()
             run_time = end_time - start_time
             print(f"Lasted {run_time:.2f} seconds.")
@@ -139,7 +139,7 @@ class TrackedPipeline:
             raise PipelineException("Unset classes.")
         metadata = {
             "SIZE": self.data_size,
-            "TARGET": pd.DataFrame(self.current_y, columns=[target_name]).value_counts().to_dict(),
+            "TARGET": pd.DataFrame(self.current_y, columns=[target_name]).loc[:, target_name].value_counts().to_dict(),
             "NB_PATCHES": nb_shape,
             "FEATURES": list(self.classes),
             "OUTLIERS_ANALYSIS": outlier_analysis(pd.DataFrame(self.current_X, columns=self.classes)).to_dict(),
@@ -183,7 +183,7 @@ class TrackedPipeline:
         })
         metadata.update({
             "transformer_type": type(transformer).__name__,
-            "transformer_params": transformer.get_params()
+            "transformer_params": {k: str(v) for k,v in transformer.get_params().items()}
         })
 
         # Enregistrer le nouvel état
@@ -214,8 +214,8 @@ class TrackedPipeline:
             k: v() for k, v in metadata.items() if callable(v)
         })
         metadata.update({
-            "TRAIN_SIZE": {"value": self.X_train.shape[0], "percent": self.X_train.shape[0] / self.data_size * 100},
-            "TEST_SIZE": {"value": self.X_test.shape[0], "percent": self.X_test.shape[0] / self.data_size * 100},
+            "TRAIN_SIZE": {"value": self.X_train.shape[0], "percent": self.X_train.shape[0] / self.current_X.shape[0] * 100},
+            "TEST_SIZE": {"value": self.X_test.shape[0], "percent": self.X_test.shape[0] / self.current_X.shape[0] * 100},
             "TEST_RATIO": test_size,
             "STRATIFIED": stratify
         })
@@ -280,12 +280,12 @@ class TrackedPipeline:
             )
         
         # Effectuer la recherche par grille
-        grid = GridSearchCV(
+        grid = RandomizedSearchCV(
             estimator, 
             param_grid, 
             scoring=scoring, 
             cv=cv, 
-            n_jobs=-1, 
+            n_jobs=-1,
             return_train_score=True
         )
 
@@ -297,11 +297,11 @@ class TrackedPipeline:
             k: v() for k, v in metadata.items() if callable(v)
         })
         metadata.update({
-            "best_params": grid_fit.best_params_,
+            "best_params": {k: float(v) for k,v in grid_fit.best_params_.items()},
             "best_score": float(grid_fit.best_score_),
             "cv": str(cv),
             "scoring": scoring,
-            "cv_results": pd.DataFrame(grid.cv_results_)
+            "cv_results": pd.DataFrame(grid.cv_results_).to_dict()
         })
 
         self.states.append(DataState(
@@ -409,7 +409,7 @@ class TrackedPipeline:
         })
         metadata.update({
             "REAL": sample_y.tolist(),
-            "PRED": pred_dict
+            **pred_dict
         })
         self.states.append(DataState(
             X=np.array([]),  # Placeholder vide
@@ -429,16 +429,19 @@ class TrackedPipeline:
         """Exporte un rapport complet sur le pipeline et ses transformations"""
         if file_path is None:
             file_path = REPORT_PATH / f"{self.name}_report.yaml"
+        file_path_for_quarto = REPORT_PATH / "report.yaml"
 
         # Construire le rapport
         report = {
             "pipeline_name": self.name,
-            "states": [state.to_dict() for state in self.states]
+            "states": {state.name: state.to_dict() for state in self.states}
         }
 
         if not os.path.exists(EXPORT_PATH):
             os.makedirs(EXPORT_PATH)
         with open(file_path, "w", encoding="utf-8") as file:
+            yaml.dump(report, file)
+        with open(file_path_for_quarto, "w", encoding="utf-8") as file:
             yaml.dump(report, file)
             
         return self
