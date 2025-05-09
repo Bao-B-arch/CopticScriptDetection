@@ -51,11 +51,13 @@ def run_ocr(nb_shapes: int, selection: bool) -> None:
     )
 
     if selection:
+        selector = SelectKBest(k=4)
         # Features Selection
         pipeline.transform(
-            transformer=SelectKBest(k=4),
+            transformer=selector,
             name="selection_features",
-            transform_y=True
+            transform_y=True,
+            SELECTED_FEATURES=selector.get_support
         )
 
     # Division des données
@@ -89,7 +91,7 @@ def run_ocr(nb_shapes: int, selection: bool) -> None:
     # Évaluer les modèles
     pipeline.evaluate_model()
     pipeline.example()
-    pipeline.export_report()
+    pipeline.export_report(selection=selection)
 
     if FORCE_COMPUTATION | (not os.path.isfile(SAVED_DATABASE_PATH)):
         pipeline.export_database(path=SAVED_DATABASE_PATH)
@@ -126,7 +128,7 @@ def run_ocr(nb_shapes: int, selection: bool) -> None:
     test_quarto = subprocess.run(["quarto", "--version"], stdout = subprocess.DEVNULL)
     if FORCE_REPORT & (test_quarto.returncode == 0):
         a = subprocess.run(["quarto", "render", ".\coptic_report.qmd", 
-                        "--to", "pdf,revealjs", 
+                        "--to", "pdf,revealjs",
                         "--output", f"OCR_{nb_shapes}_{selection}",
                         "--output-dir", "report\quarto"], 
                         stdout = subprocess.DEVNULL,

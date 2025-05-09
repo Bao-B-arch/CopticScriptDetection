@@ -424,11 +424,12 @@ class TrackedPipeline:
     @timer("EXPORT")
     def export_report(
         self, /, *,
-        file_path: Optional[Path] = None
+        file_path: Optional[Path] = None,
+        selection: bool = False
     ) -> Self:
         """Exporte un rapport complet sur le pipeline et ses transformations"""
         if file_path is None:
-            file_path = REPORT_PATH / f"{self.name}_report.yaml"
+            file_path = REPORT_PATH / f"{self.name}_{selection}_report.yaml"
         file_path_for_quarto = REPORT_PATH / "report.yaml"
 
         # Construire le rapport
