@@ -57,7 +57,7 @@ def run_ocr(nb_shapes: int, selection: bool) -> None:
             transformer=selector,
             name="selection_features",
             transform_y=True,
-            SELECTED_FEATURES=selector.get_support
+            SELECTED_FEATURES=lambda : [int(i) for i in selector.get_support(indices=True)]
         )
 
     # Division des données
