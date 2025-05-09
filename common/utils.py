@@ -1,16 +1,15 @@
-from attrs import define
+from typing import Tuple
 import numpy as np
 import pandas as pd
 
-IMAGE_SIZE = 28
-BACKGROUND_COLOR = int(0.3*255)
+from common.types import NDArrayNum
 
-@define
-class Sets:
-    X: pd.DataFrame
-    y: pd.DataFrame
 
-def mad(data: pd.DataFrame) -> float:
+def population_std(x: NDArrayNum) -> float:
+    return float(np.std(x, ddof=0))
+
+
+def mad(data: NDArrayNum) -> Tuple[float, float]:
     """
     Calcul de la Median Absolute Deviation (MAD)
     
@@ -22,7 +21,8 @@ def mad(data: pd.DataFrame) -> float:
     """
     median = np.median(data)
     mad_value = np.median(np.abs(data - median))
-    return mad_value
+    return float(median), float(mad_value)
+
 
 def outlier_analysis(data: pd.DataFrame) -> pd.DataFrame:
 # Analyse statistique des outliers avec MAD
@@ -36,8 +36,7 @@ def outlier_analysis(data: pd.DataFrame) -> pd.DataFrame:
     )
     for col in data.columns:
         # Calcul des outliers avec la méthode MAD
-        median_val = np.median(data[col])
-        mad_val = mad(data[col])
+        median_val, mad_val = mad(data[col].to_numpy())
 
         # Seuil standard : points à plus de 3 MAD de la médiane
         lower_bound = median_val - 3 * mad_val

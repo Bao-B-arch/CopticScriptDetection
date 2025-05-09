@@ -2,8 +2,9 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import StandardScaler
 from matplotlib.colors import Normalize
+
+from common.types import NDArrayNum, NDArrayStr
 
 class MidpointNormalize(Normalize):
     def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
@@ -14,7 +15,7 @@ class MidpointNormalize(Normalize):
         x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]
         return np.ma.masked_array(np.interp(value, x, y))
 
-def visualize_scaling(data: pd.DataFrame) -> dict:
+def visualize_scaling(data_before: NDArrayNum, data_after: NDArrayNum) -> None:
     """
     Visualise l'effet du standard scaling avec détection des outliers via MAD
     
@@ -29,37 +30,23 @@ def visualize_scaling(data: pd.DataFrame) -> dict:
     fig.suptitle("Analyse du Standard Scaling et Détection des Outliers (Méthode MAD)", fontsize=16)
 
     # Boxplot avant scaling
-    sns.boxplot(data=data, ax=axes[0])
+    sns.boxplot(data=data_before, ax=axes[0])
     axes[0].set_title("Distribution Originale")
 
-    # Calcul du scaling
-    scaler = StandardScaler()
-    data_scaled = scaler.fit_transform(data)
-
     # Boxplot après scaling
-    sns.boxplot(data=data_scaled, ax=axes[1])
+    sns.boxplot(data=data_after, ax=axes[1])
     axes[1].set_title('Distribution Après Standard Scaling')
     plt.savefig("graphs/scaling.svg")
 
-def visualize_correlation(data: pd.DataFrame) -> None:
+def visualize_correlation(data: NDArrayNum, labels: NDArrayStr) -> None:
 
-    f = plt.figure(figsize=(19, 15))
-    plt.matshow(data.corr(), fignum=f.number)
-    plt.xticks(
-        range(data.select_dtypes(['number']).shape[1]),
-        data.select_dtypes(['number']).columns,
-        fontsize=14,
-        rotation=45)
-    plt.yticks(
-        range(data.select_dtypes(['number']).shape[1]),
-        data.select_dtypes(['number']).columns,
-        fontsize=14)
-    cb = plt.colorbar()
-    cb.ax.tick_params(labelsize=14)
+    plt.figure(figsize=(19, 15))
+    print(np.corrcoef(data, rowvar=False).shape)
+    sns.heatmap(np.corrcoef(data, rowvar=False), xticklabels=labels, yticklabels=labels)
     plt.title('Correlation Matrix', fontsize=16)
     plt.savefig("graphs/correlation.svg")
 
-def visualize_train_test_split(train: pd.Series, test: pd.Series) -> None:
+def visualize_train_test_split(train: NDArrayStr, test: NDArrayStr) -> None:
 
     df_set = pd.concat([
         pd.DataFrame({"Letter": train}).value_counts(),
@@ -71,7 +58,7 @@ def visualize_train_test_split(train: pd.Series, test: pd.Series) -> None:
     plt.subplots_adjust(bottom=0.25)
     plt.savefig("graphs/split.svg")
 
-def visualize_confusion_matrix(cm: np.ndarray, labels: np.ndarray, model_name: str) -> None:
+def visualize_confusion_matrix(cm: NDArrayNum, labels: NDArrayStr, model_name: str) -> None:
 
     plt.figure()
     sns.heatmap(cm, xticklabels=labels, yticklabels=labels)

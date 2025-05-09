@@ -3,9 +3,10 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 import cv2
 import numpy as np
+import pandas as pd
 
+from common.config import IMAGE_SIZE
 from common.types import NDArrayInt
-from common.utils import IMAGE_SIZE
 
 class DimensionException(Exception):
     pass
@@ -13,7 +14,7 @@ class DimensionException(Exception):
 
 def load_image(image_path: str) -> NDArrayInt:
     # reads image as grayscale
-    img: NDArrayInt = cv2.imread(image_path, 0)
+    img: NDArrayInt = cv2.imread(image_path, 0).astype(np.uint8)
     height, width = img.shape
 
     if height != IMAGE_SIZE and width != IMAGE_SIZE:
@@ -21,6 +22,7 @@ def load_image(image_path: str) -> NDArrayInt:
             "Image %s has dimension %dx%d which is different from the expected %dx%d.",
             image_path, height, width, IMAGE_SIZE, IMAGE_SIZE)
     return img
+
 
 def load_folder(folder_path: Path) -> List[NDArrayInt]:
     # charger toutes les images dans un dossier
@@ -35,6 +37,7 @@ def load_folder(folder_path: Path) -> List[NDArrayInt]:
 
     return imgs
 
+
 def load_database(path: Path) -> Tuple[Dict[str, List[NDArrayInt]], int]:
     # charger tous les dossier de la base des données
     # retourner un dictionnaire d'load_image
@@ -46,5 +49,8 @@ def load_database(path: Path) -> Tuple[Dict[str, List[NDArrayInt]], int]:
         db[folder] = imgs
     return db, db_size
 
-if __name__ == "__main__":
-    print("Data_Loading")
+
+def load_database_from_save(path: Path) -> Tuple[pd.DataFrame, int]:
+    data = pd.read_feather(path)
+    data_size = data.index.size
+    return data, data_size

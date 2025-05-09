@@ -1,44 +1,49 @@
 import os
 from pathlib import Path
+from typing import Dict, List
 import cv2
 import numpy as np
 import pandas as pd
 
-from common.utils import BACKGROUND_COLOR, IMAGE_SIZE
+from common.config import BACKGROUND_COLOR, IMAGE_SIZE
+from common.types import NDArrayBool, NDArrayFloat, NDArrayInt
+from common.utils import population_std
 
-def mean_grayscale(database: dict, data_size: int, shape: int) -> pd.DataFrame:
-    shape = np.sqrt(shape).astype(np.uint)
-    patch_pairs = np.linspace(0, IMAGE_SIZE, shape + 2).astype(np.uint8)
+def mean_grayscale(database: Dict[str, List[NDArrayInt]], data_size: int, shape: int) -> pd.DataFrame:
+    shape_sqrt = int(np.sqrt(shape))
+    patch_masks: List[NDArrayBool] = []
 
-    col = pd.RangeIndex(0, shape).astype("string")
-    col.append(pd.Index(["Letter"]))
-    df = pd.DataFrame(columns=col, index=pd.RangeIndex(0, data_size))
+    for i in range(shape_sqrt):
+        row_start = int(i * IMAGE_SIZE / shape_sqrt)
+        row_end = int((i + 1) * IMAGE_SIZE / shape_sqrt) if i < shape_sqrt - 1 else IMAGE_SIZE
+        
+        for j in range(shape_sqrt):
+            col_start = int(j * IMAGE_SIZE / shape_sqrt)
+            col_end = int((j + 1) * IMAGE_SIZE / shape_sqrt) if j < shape_sqrt - 1 else IMAGE_SIZE
+            
+            # Créer un masque pour ce patch
+            mask: NDArrayBool = np.zeros((IMAGE_SIZE, IMAGE_SIZE), dtype=bool)
+            mask[row_start:row_end, col_start:col_end] = True
+            patch_masks.append(mask)
 
-    idx = 0
+    columns = [str(i) for i in range(shape)] + ["Letter"]
+    df = pd.DataFrame(columns=columns, index=pd.RangeIndex(0, data_size))
+
+    all_data: List[NDArrayFloat] = []
+    all_letters: List[str] = []
     for folder, imgs in database.items():
         for img in imgs:
-            patch_idx = 0
-            df.loc[idx, "Letter"] = folder
+            means = np.array([np.mean(img[mask]) for mask in patch_masks])
+            all_data.append(means)
+            all_letters.append(folder)
 
-            for i in range(shape):
-                row_l = patch_pairs[i]
-                row_h = patch_pairs[i + 2]
+    data_array = np.array(all_data)
+    letter_array = np.array(all_letters)
 
-                for j in range(shape):
-                    col_l = patch_pairs[j]
-                    col_h = patch_pairs[j + 2]
-
-                    patch = img[row_l:row_h, col_l:col_h]
-                    mean = np.mean(patch)
-
-                    df.loc[idx, f"{patch_idx}"] = mean
-                    patch_idx += 1
-            idx += 1
-
+    df.iloc[:, :-1] = data_array
+    df.iloc[:, -1] = letter_array
     return df
 
-def population_std(x: pd.Series) -> float:
-    return x.std(ddof=0)
 
 def export_visual_features(path: Path, database: pd.DataFrame, shape: int, factor: int = 10) -> None:
     shape = np.sqrt(shape).astype(np.uint)
@@ -53,7 +58,7 @@ def export_visual_features(path: Path, database: pd.DataFrame, shape: int, facto
 
         arr = np.reshape(row.to_numpy().astype(np.uint8), (-1, shape))
         zoom_arr = np.kron(arr, np.ones((factor, factor))).astype(np.uint8)
-        cv2.imwrite(curr_path, zoom_arr)
+        cv2.imwrite(str(curr_path), zoom_arr)
 
     distributions = database.groupby("Letter").agg(["mean", population_std])
     letter_stats_max = distributions.T.groupby(level=1).max().T
@@ -62,7 +67,7 @@ def export_visual_features(path: Path, database: pd.DataFrame, shape: int, facto
     for idx, row in distributions.iterrows():
         background = np.zeros(shape=(shape*factor, shape*factor), dtype=np.uint8)
         background += BACKGROUND_COLOR
-        curr_path = path / idx
+        curr_path = path / str(idx)
         if not os.path.exists(curr_path):
             os.makedirs(curr_path)
         curr_path = curr_path / f"avg_{idx}.png"
@@ -82,7 +87,4 @@ def export_visual_features(path: Path, database: pd.DataFrame, shape: int, facto
             square = np.ones(shape=(std_factor, std_factor)) * mean
             background[x_start:x_stop, y_start:y_stop] = square.astype(np.uint8)
 
-        cv2.imwrite(curr_path, background)
-
-def export_database(path: str, database: pd.DataFrame) -> None:
-    database.to_feather(path)
+        cv2.imwrite(str(curr_path), background)
