@@ -2,11 +2,11 @@
 
 ## Finaliser l'implémentation de l'apprentissage
 
-- [ ] faire une sélection de features sur les patchs pour descendre à 4 features
-  - [ ] :exclamation: explorer les possibles algorithmes de sélection de features
-  - [ ] :exclamation: tester la sélection de features et voir si elle améliore le(s) modèle(s)
+- [x] faire une sélection de features sur les patchs pour descendre à 4 features
+  - [x] :exclamation: explorer les possibles algorithmes de sélection de features
+  - [x] :exclamation: tester la sélection de features et voir si elle améliore le(s) modèle(s)
 - [ ] améliorer les classifiers (random forest et SVM)
-  - [ ] :bangbang: rendre robuste la recherche d'hyperparamètres
+  - [x] :bangbang: rendre robuste la recherche d'hyperparamètres
   - [ ] :grey_exclamation: essayer d'optimiser le RF
 - [ ] :interrobang: implémenter une approche par Bootstrap pour la validation
 - [ ] implémenter les différents modèles suivants

@@ -1,8 +1,14 @@
-from typing import Tuple
+from typing import Optional, Tuple, TypeVar
 import numpy as np
 import pandas as pd
 
 from common.types import NDArrayNum
+
+T = TypeVar("T")
+def unwrap(obj: Optional[T], exception: type[Exception]=Exception) -> T:
+    if obj is None:
+        raise exception("Cannot unwrap %s", obj)
+    return obj
 
 
 def population_std(x: NDArrayNum) -> float:

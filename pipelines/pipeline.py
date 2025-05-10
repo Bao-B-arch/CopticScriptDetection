@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import functools
 import os
 from pathlib import Path
-import time
-from typing import TYPE_CHECKING, Any, Callable, Concatenate, Dict, List, Optional, Self, Tuple, TypeVar, cast
+from typing import Any, Dict, List, Optional, Self
 
 import numpy as np
 import pandas as pd
@@ -14,45 +12,16 @@ from sklearn.model_selection import RandomizedSearchCV, StratifiedShuffleSplit, 
 import yaml
 
 from common import compute_features, data_loading
-from common.config import DATABASE_PATH, EXPORT_PATH, NB_SHAPE, NUMBER_SECTION_DEL, \
+from common.config import DATABASE_PATH, EXPORT_PATH, NB_SHAPE, \
     RANDOM_STATE, REPORT_PATH, SAVED_DATABASE_PATH, TEST_TRAIN_RATIO
 from common.datastate import DataState
 from common.types import NDArrayInt, NDArrayNum, NDArrayStr
-from common.utils import outlier_analysis
+from common.utils import outlier_analysis, unwrap
+from pipelines.decorator import timer_pipeline
 
-if TYPE_CHECKING:
-    _TP = TrackedPipeline
-else:
-    _TP = TypeVar("_TP", bound="TrackedPipeline")
-
-TrackedPipelineMethod = Callable[Concatenate[_TP, ...], _TP, ]
 
 class PipelineException(Exception):
     pass
-
-
-def timer(name: str) -> Callable[[TrackedPipelineMethod], TrackedPipelineMethod]:
-    """Print the runtime of the decorated function"""
-    def decorator_timer(func: TrackedPipelineMethod) -> TrackedPipelineMethod:
-        @functools.wraps(func)
-        def wrapper_timer(pipeline: TrackedPipeline, **kwargs: Any) -> TrackedPipeline:
-
-            _name = name
-            if "name" in kwargs:
-                _name += f"_{kwargs['name']}"
-
-            print(f"{_name}: ", end = '\0')
-            start_time = time.perf_counter()
-            res: TrackedPipeline = func(pipeline, **kwargs)
-            end_time = time.perf_counter()
-            run_time = end_time - start_time
-            print(f"Lasted {run_time:.2f} seconds.")
-            print("-"*NUMBER_SECTION_DEL)
-
-            pipeline.add_time(_name, run_time)
-            return res
-        return cast(TrackedPipelineMethod, wrapper_timer)
-    return decorator_timer
 
 
 class TrackedPipeline:
@@ -60,18 +29,18 @@ class TrackedPipeline:
     
     def __init__(self, name: str = "OCR_Pipeline"):
         self.name = name
+        self.raw: Optional[Dict[str, List[NDArrayInt]]] = None
         self.classes: Optional[NDArrayStr] = None
         self.states: List[DataState] = []
-        self.transformers: List[Tuple[str, BaseEstimator]] = []
+        self.transformers: Dict[str, BaseEstimator] = {}
+        self.models: Dict[str, BaseEstimator] = {}
         self.current_X: Optional[NDArrayNum] = None
         self.current_y: Optional[NDArrayStr] = None
-        self.raw: Optional[Dict[str, List[NDArrayInt]]] = None
         self.X_train: Optional[NDArrayNum] = None
         self.y_train: Optional[NDArrayStr] = None
         self.X_test: Optional[NDArrayNum] = None
         self.y_test: Optional[NDArrayStr] = None
         self.data_size: int = 0
-        self.models: Dict[str, BaseEstimator] = {}
         self.last_estimator_grid_search: Optional[BaseEstimator] = None
     
     def add_state(self, name: str, metadata: Optional[Dict[str, Any]] = None) -> None:
@@ -96,7 +65,7 @@ class TrackedPipeline:
         return self
 
 
-    @timer("LOADING RAW DATABASE")
+    @timer_pipeline("LOADING RAW DATABASE")
     def __load_data_from_files(self, /) -> Self:
         raw_data, data_size = data_loading.load_database(DATABASE_PATH)
         self.data_size = data_size
@@ -110,7 +79,7 @@ class TrackedPipeline:
         return self
 
 
-    @timer("FEATURES COMPUTATION")
+    @timer_pipeline("FEATURES COMPUTATION")
     def __compute_features(self, /, *, nb_shape: int, target_name: str) -> Self:
         if self.raw is None:
             raise PipelineException("No raw data for features computation.")
@@ -120,7 +89,7 @@ class TrackedPipeline:
         return self
 
 
-    @timer("LOADING FEATHER DATABASE")
+    @timer_pipeline("LOADING FEATHER DATABASE")
     def __load_data_from_save(self, /, *, target_name: str) -> Self:
         data, data_size = data_loading.load_database_from_save(SAVED_DATABASE_PATH)
         self.data_size = data_size
@@ -148,7 +117,7 @@ class TrackedPipeline:
         return self
 
 
-    @timer("TRANSFORMER")
+    @timer_pipeline("TRANSFORMER")
     def transform(
         self, /, *,
         transformer: BaseEstimator,
@@ -191,7 +160,7 @@ class TrackedPipeline:
         return self
 
 
-    @timer("TRAIN_TEST_SPLIT")
+    @timer_pipeline("TRAIN_TEST_SPLIT")
     def split_data(
         self, /, *,
         test_size: float = TEST_TRAIN_RATIO,
@@ -213,9 +182,12 @@ class TrackedPipeline:
         metadata.update({
             k: v() for k, v in metadata.items() if callable(v)
         })
+        X_train = unwrap(self.X_train)
+        X_test = unwrap(self.X_test)
+        current_X = unwrap(self.current_X)
         metadata.update({
-            "TRAIN_SIZE": {"value": self.X_train.shape[0], "percent": self.X_train.shape[0] / self.current_X.shape[0] * 100},
-            "TEST_SIZE": {"value": self.X_test.shape[0], "percent": self.X_test.shape[0] / self.current_X.shape[0] * 100},
+            "TRAIN_SIZE": {"value": X_train.shape[0], "percent": X_train.shape[0] / self.current_X.shape[0] * 100},
+            "TEST_SIZE": {"value": X_test.shape[0], "percent": X_test.shape[0] / current_X.shape[0] * 100},
             "TEST_RATIO": test_size,
             "STRATIFIED": stratify
         })
@@ -225,7 +197,7 @@ class TrackedPipeline:
         return self
 
 
-    @timer("TRAIN")
+    @timer_pipeline("TRAIN")
     def train_model(
             self, /, *,
             model: BaseEstimator,
@@ -259,7 +231,7 @@ class TrackedPipeline:
         return self
 
 
-    @timer("TUNING HYPER PARAMETERS")
+    @timer_pipeline("TUNING HYPER PARAMETERS")
     def grid_search(
         self, /, *, 
         estimator: BaseEstimator, 
@@ -315,7 +287,7 @@ class TrackedPipeline:
         return self
 
 
-    @timer("EVALUATE")
+    @timer_pipeline("EVALUATE")
     def __evaluate(
         self, /, *,
         model: BaseEstimator,
@@ -385,7 +357,7 @@ class TrackedPipeline:
         return self.last_estimator_grid_search
     
 
-    @timer("EXAMPLE")
+    @timer_pipeline("EXAMPLE")
     def example(
         self, /, *,
         n: int = 10,
@@ -421,7 +393,7 @@ class TrackedPipeline:
         return self
 
 
-    @timer("EXPORT")
+    @timer_pipeline("EXPORT")
     def export_report(
         self, /, *,
         file_path: Optional[Path] = None,
@@ -435,6 +407,7 @@ class TrackedPipeline:
         # Construire le rapport
         report = {
             "pipeline_name": self.name,
+            "transformers": self.transformers,
             "states": {state.name: state.to_dict() for state in self.states}
         }
 
@@ -444,5 +417,5 @@ class TrackedPipeline:
             yaml.dump(report, file)
         with open(file_path_for_quarto, "w", encoding="utf-8") as file:
             yaml.dump(report, file)
-            
+
         return self
