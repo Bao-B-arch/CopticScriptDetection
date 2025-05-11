@@ -34,78 +34,67 @@ def run_ocr(**config: Any) -> None:
     selection: bool = config["selection"]
 
     main_start_timer = timer()
-    # Créer et configurer le pipeline
-    pipeline = TrackedPipeline(name=f"OCR_{nb_shapes}")
-    print(f"Starting {pipeline.name}...")
-
-    pipeline.load_data(
-        target_name="Letter",
-        name="initial_data",
-        from_save=(not FORCE_COMPUTATION) & os.path.isfile(SAVED_DATABASE_PATH),
-        nb_shape=nb_shapes
-    )
 
     # Retirer les lettres du .env
     remover = LetterRemover()
-    pipeline.transform(
-        transformer=remover,
-        name="letter_to_remove",
-        transform_y=True,
-        apply_y=True,
-        LETTER_REMOVED=remover.get_removed_count,
-    )
-    
-    # Normalisaton
-    pipeline.transform(
-        transformer=StandardScaler(), 
-        name="normalisation",
-    )
-
-    if selection:
-        selector = SelectKBest(k=4)
-        # Features Selection
-        pipeline.transform(
-            transformer=selector,
-            name="selection_features",
-            transform_y=True,
-            SELECTED_FEATURES=lambda : [int(i) for i in selector.get_support(indices=True)]
-        )
-
-    # Division des données
-    pipeline.split_data()
-
-    # Grid search pour trouver le meilleur SVM
+    # pour features selection
+    selector = SelectKBest(k=4)
+    # model svm
     svm = SVC(random_state=RANDOM_STATE, class_weight="balanced", cache_size=1000)
     param_grid = {
         "C": np.logspace(-3, 5, 7).tolist(),
         "gamma": np.logspace(-7, 1, 7).tolist()
     }
-    pipeline.grid_search(
-        estimator=svm,
-        param_grid=param_grid, 
-        name="grid_search_svm"
-    )
-    grid_svm = pipeline.get_last_estimator_grid_search()
-
-    best_svm = SVC(random_state=RANDOM_STATE, class_weight="balanced", cache_size=1000, **grid_svm.best_params_)
-    pipeline.train_model(
-        model=best_svm, 
-        name="svm"
-    )
-
+    # model rfc
     rfc = RandomForestClassifier(random_state=RANDOM_STATE, class_weight="balanced")
-    pipeline.train_model(
-        model=rfc, 
-        name="rfc"
+
+
+    # Créer et configurer le pipeline
+    pipeline = TrackedPipeline(name=f"OCR_{nb_shapes}")
+    print(f"Starting {pipeline.name}...")
+
+
+    pipeline\
+        .load_data(
+            target_name="Letter",
+            name="initial_data",
+            from_save=(not FORCE_COMPUTATION) & os.path.isfile(SAVED_DATABASE_PATH),
+            nb_shape=nb_shapes
+    )\
+        .transform(
+            transformer=remover,
+            name="letter_to_remove",
+            transform_y=True,
+            apply_y=True,
+            LETTER_REMOVED=remover.get_removed_count,
+    )\
+        .transform(
+            transformer=StandardScaler(), 
+            name="normalisation",
+     )\
+        .transform(
+            transformer=selector,
+            name="selection_features",
+            transform_y=True,
+            SELECTED_FEATURES=lambda : [int(i) for i in selector.get_support(indices=True)]
+    )\
+        .split()\
+        .train_model_searched(
+            estimator=svm,
+            param_grid=param_grid, 
+            name="grid_search_svm"
+    )\
+        .train_model(
+            model=rfc, 
+            name="rfc"
+    )\
+        .evaluate_models()\
+        .example()\
+        .export_report()\
+        .export_database(
+            export=FORCE_COMPUTATION | (not os.path.isfile(SAVED_DATABASE_PATH)),
+            path=SAVED_DATABASE_PATH,
     )
-
-    # Évaluer les modèles
-    pipeline.evaluate_model()
-    pipeline.example()
-    pipeline.export_report(selection=selection)
-
-    if FORCE_COMPUTATION | (not os.path.isfile(SAVED_DATABASE_PATH)):
-        pipeline.export_database(path=SAVED_DATABASE_PATH)
 
     # compute_features.export_visual_features(EXPORT_PATH, pd.DataFrame(), nb_shapes, FACTOR_SIZE_EXPORT)
 

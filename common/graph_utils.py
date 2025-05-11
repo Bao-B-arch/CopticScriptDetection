@@ -1,4 +1,5 @@
-from matplotlib.path import Path
+from pathlib import Path
+from typing import Optional
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -8,11 +9,11 @@ from matplotlib.colors import Normalize
 from common.types import NDArrayNum, NDArrayStr
 
 class MidpointNormalize(Normalize):
-    def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
+    def __init__(self, vmin: Optional[float]=None, vmax: Optional[float]=None, midpoint: Optional[float]=None, clip: bool=False):
         self.midpoint = midpoint
         Normalize.__init__(self, vmin, vmax, clip)
 
-    def __call__(self, value, clip=None):
+    def __call__(self, value, clip: Optional[bool]=None):
         x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]
         return np.ma.masked_array(np.interp(value, x, y))
 

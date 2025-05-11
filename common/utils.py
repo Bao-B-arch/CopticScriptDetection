@@ -4,10 +4,14 @@ import pandas as pd
 
 from common.types import NDArrayNum
 
+class NoneException(Exception):
+    pass
+
+
 T = TypeVar("T")
-def unwrap(obj: Optional[T], exception: type[Exception]=Exception) -> T:
+def unwrap(obj: Optional[T], msg: str = "Cannot unwrap %s") -> T:
     if obj is None:
-        raise exception("Cannot unwrap %s", obj)
+        raise NoneException(msg, obj)
     return obj
 
 
