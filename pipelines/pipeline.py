@@ -40,6 +40,7 @@ class LoadingProcess:
         classes = data.columns.drop([target_name]).to_numpy()
         return LoadingData(
             classes=classes,
+            target=target_name,
             current_X=data.loc[:, classes].to_numpy(),
             current_y=data.loc[:, target_name].to_numpy(),
             data_size=data_size
@@ -92,13 +93,19 @@ class LoadingProcess:
                 transformer.fit(data.current_X)
 
         if apply_y:
-            data.current_X, data.current_y = transformer.transform(data.current_X, data.current_y)
+            new_X, new_y = transformer.transform(data.current_X, data.current_y)
         else:
-            data.current_X = transformer.transform(data.current_X)
+            new_X = transformer.transform(data.current_X)
+            new_y = data.current_y
 
-        # Stocker le transformateur
-        data.transformers[name] = transformer
-        return data
+        return LoadingData(
+            data_size=data.data_size,
+            target=data.target,
+            classes=data.classes,
+            current_X=new_X,
+            current_y=new_y,
+            transformers={**data.transformers, name: transformer}
+        )
     
 
     @classmethod
@@ -148,10 +155,22 @@ class SplitProcess:
         
         # Entraîner le modèle
         model.fit(data.X_train, data.y_train)
-        data.models[name] = (None, model)
 
-        return data
+        return SplitData(
+            X_train=data.X_train,
+            y_train=data.y_train,
+            X_test=data.X_test,
+            y_test=data.y_test,
+            models={**data.models, name:(None, model)}
+        )
     
+
+    @classmethod
+    def _validate_param_grid(cls, /, *, param_grid: Dict[str, List[Any]]) -> None:
+        for key, values in param_grid.items():
+            if not isinstance(values, list) or len(values) == 0:
+                raise ValueError(f"Paramètre invalide pour {key}: {values}")
+        
 
     @classmethod
     def train_model_searched(
@@ -165,6 +184,7 @@ class SplitProcess:
     ) -> SplitData:
         """Effectue une recherche d'hyperparamètres et entraîne un modèle"""
         
+        cls._validate_param_grid(param_grid=param_grid)
         # Configurer la validation croisée
         if isinstance(cv, int):
             cv = StratifiedShuffleSplit(
@@ -186,8 +206,14 @@ class SplitProcess:
 
         searched_model = model.set_params(**search_fit.best_params_)
         searched_model.fit(data.X_train, data.y_train)
-        data.models[name] = (search_fit, searched_model)
-        return data
+
+        return SplitData(
+            X_train=data.X_train,
+            y_train=data.y_train,
+            X_test=data.X_test,
+            y_test=data.y_test,
+            models={**data.models, name:(search_fit, searched_model)}
+        )
 
 
     @classmethod
@@ -268,7 +294,7 @@ class TrackedPipeline:
 
         metadata = {
             "SIZE": self.loading_data.data_size,
-            "TARGET": pd.DataFrame(self.loading_data.current_y, columns=[target_name]).loc[:, target_name].value_counts().to_dict(),
+            "TARGET": {k: v for (k, v) in np.unique(self.loading_data.current_y, return_counts=True)},
             "NB_PATCHES": self.nb_shapes,
             "FEATURES": list(self.loading_data.classes),
             "OUTLIERS_ANALYSIS": outlier_analysis(pd.DataFrame(self.loading_data.current_X, columns=self.loading_data.classes)).to_dict(),
@@ -564,11 +590,11 @@ class TrackedPipeline:
     @timer_pipeline("EXPORT DATABASE")
     def export_database(self, /, *, export: bool, path: Path) -> Self:
         if export:
-            datastate = next((ds for ds in self.states if ds.name == "initial_data"))
+            datastate = self.get_state(name="initial_state")
             loading_data = unwrap(self.loading_data)
             database = pd.concat([
                 pd.DataFrame(datastate.X, columns=loading_data.classes),
-                pd.DataFrame(datastate.y, columns=["Letter"])
+                pd.DataFrame(datastate.y, columns=[loading_data.target])
             ])
             database.to_feather(path)
         return self
@@ -645,12 +671,14 @@ class TrackedPipeline:
 
     @timer_pipeline("BUILD REPORT")
     def build_quarto(self, /) -> Self:
-        test_quarto = subprocess.run(["quarto", "--version"], stdout = subprocess.DEVNULL)
-        if FORCE_REPORT & (test_quarto.returncode == 0):
-            subprocess.run(["quarto", "render", ".\coptic_report.qmd", 
-                            "--to", "pdf,revealjs",
-                            "--output", f"OCR_{self.nb_shapes}_{self.selection}",
-                            "--output-dir", "report\quarto"], 
-                            stdout = subprocess.DEVNULL,
-                            stderr = subprocess.DEVNULL)
+        if FORCE_REPORT:
+            try:
+                subprocess.run(["quarto", "render", ".\coptic_report.qmd", 
+                                "--to", "pdf,revealjs",
+                                "--output", f"OCR_{self.nb_shapes}_{self.selection}",
+                                "--output-dir", "report\quarto"], 
+                                stdout = subprocess.DEVNULL,
+                                stderr = subprocess.DEVNULL)
+            except subprocess.CalledProcessError as e:
+                print(f"Échec de génération du rapport Quarto: {e}")
         return self

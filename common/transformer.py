@@ -27,14 +27,14 @@ class LetterRemover(BaseEstimator, TransformerMixin):
         if self.mask is not None:
             if y is not None:
                 return X[self.mask, :], y[self.mask]
-            return X[self.mask, :]
+            return (X[self.mask, :], )
         
         if y is not None:
             return X, y
-        return X
+        return (X, )
     
-    def fit_transform(self, X: NDArrayNum, y: Optional[NDArrayNum]=None) -> NDArrayNum:
+    def fit_transform(self, X: NDArrayNum, y: Optional[NDArrayNum]=None) -> Tuple[NDArrayNum, ...]:
         return self.fit(X, y).transform(X)
     
-    def get_removed_count(self) -> Dict[str, NDArrayNum]:
+    def get_removed_count(self) -> Dict[str, int]:
         return self.removed_counts
