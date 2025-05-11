@@ -17,7 +17,7 @@ class MidpointNormalize(Normalize):
         x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]
         return np.ma.masked_array(np.interp(value, x, y))
 
-def visualize_scaling(graph_folder: Path, data_before: NDArrayNum, data_after: NDArrayNum) -> None:
+def visualize_scaling(graph_folder: Path, graph_folder_for_quarto: Path, data_before: NDArrayNum, data_after: NDArrayNum) -> None:
     """
     Visualise l'effet du standard scaling avec détection des outliers via MAD
     
@@ -39,17 +39,17 @@ def visualize_scaling(graph_folder: Path, data_before: NDArrayNum, data_after: N
     sns.boxplot(data=data_after, ax=axes[1])
     axes[1].set_title('Distribution Après Standard Scaling')
     plt.savefig(graph_folder / "scaling.svg")
-    plt.savefig("graphs/scaling.svg")
+    plt.savefig(graph_folder_for_quarto / "scaling.svg")
 
-def visualize_correlation(graph_folder: Path, data: NDArrayNum, labels: NDArrayStr) -> None:
+def visualize_correlation(graph_folder: Path, graph_folder_for_quarto: Path, data: NDArrayNum, labels: NDArrayStr) -> None:
 
     plt.figure(figsize=(19, 15))
     sns.heatmap(np.corrcoef(data, rowvar=False), xticklabels=labels, yticklabels=labels)
     plt.title('Correlation Matrix', fontsize=16)
     plt.savefig(graph_folder / "correlation.svg")
-    plt.savefig("graphs/correlation.svg")
+    plt.savefig(graph_folder_for_quarto / "correlation.svg")
 
-def visualize_train_test_split(graph_folder: Path, train: NDArrayStr, test: NDArrayStr) -> None:
+def visualize_train_test_split(graph_folder: Path, graph_folder_for_quarto: Path, train: NDArrayStr, test: NDArrayStr) -> None:
 
     df_set = pd.concat([
         pd.DataFrame({"Letter": train}).value_counts(),
@@ -60,9 +60,9 @@ def visualize_train_test_split(graph_folder: Path, train: NDArrayStr, test: NDAr
     plt.title("Number of letters in each dataset")
     plt.subplots_adjust(bottom=0.25)
     plt.savefig(graph_folder / "split.svg")
-    plt.savefig("graphs/split.svg")
+    plt.savefig(graph_folder_for_quarto / "split.svg")
 
-def visualize_confusion_matrix(graph_folder: Path, cm: NDArrayNum, labels: NDArrayStr, model_name: str) -> None:
+def visualize_confusion_matrix(graph_folder: Path, graph_folder_for_quarto: Path, cm: NDArrayNum, labels: NDArrayStr, model_name: str) -> None:
 
     plt.figure()
     sns.heatmap(cm, xticklabels=labels, yticklabels=labels)
@@ -70,14 +70,14 @@ def visualize_confusion_matrix(graph_folder: Path, cm: NDArrayNum, labels: NDArr
     plt.ylabel("Actual")
     plt.title(f"Confusion Matrix for {model_name}")
     plt.savefig(graph_folder / f"cm_{model_name}.svg")
-    plt.savefig(f"graphs/cm_{model_name}.svg")
+    plt.savefig(graph_folder_for_quarto / f"cm_{model_name}.svg")
 
-def visualize_grid_search(graph_folder: Path, grid_search: pd.DataFrame, model_name: str) -> None:
+def visualize_grid_search(graph_folder: Path, graph_folder_for_quarto: Path, search: NDArrayNum, x_name: NDArrayNum, y_name: NDArrayNum, model_name: str) -> None:
 
     plt.figure()
-    sns.heatmap(grid_search, cmap=plt.cm.hot, norm=MidpointNormalize(vmin=0.2, midpoint=0.92),)
-    plt.xlabel(grid_search.columns.name)
-    plt.ylabel(grid_search.index.name)
-    plt.title(f"Grid Search for {model_name}")
-    plt.savefig(graph_folder / f"gs_{model_name}.svg")
-    plt.savefig(f"graphs/gs_{model_name}.svg")
+    sns.heatmap(search, cmap=plt.cm.hot, norm=MidpointNormalize(vmin=0.2, midpoint=0.92),)
+    plt.xlabel(x_name)
+    plt.ylabel(y_name)
+    plt.title(f"Search for {model_name}")
+    plt.savefig(graph_folder / f"search_{model_name}.svg")
+    plt.savefig(graph_folder_for_quarto / f"search_{model_name}.svg")

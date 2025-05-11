@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import subprocess
 from typing import Any, Dict, List, Optional, Self, Union
 
-from attr import define
+from attr import define, field
+from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator
@@ -13,16 +15,20 @@ from sklearn.model_selection import RandomizedSearchCV, StratifiedShuffleSplit, 
 import yaml
 
 from common import compute_features, data_loading
-from common.config import DATABASE_PATH, EXPORT_PATH, NB_SHAPE, \
+from common.config import DATABASE_PATH, EXPORT_PATH, FORCE_REPORT, GRAPH_PATH, NB_SHAPE, \
     RANDOM_STATE, REPORT_PATH, SAVED_DATABASE_PATH, TEST_TRAIN_RATIO
 from common.datastate import DataState
-from common.types import NDArrayFloat
+from common.graph_utils import visualize_confusion_matrix, visualize_correlation, visualize_grid_search, visualize_scaling, visualize_train_test_split
+from common.types import NDArrayNum, NDArrayStr
 from common.utils import outlier_analysis, unwrap
 from pipelines.data_stages import LoadingData, SplitData
 from pipelines.decorator import timer_pipeline
 
 
 class PipelineException(Exception):
+    pass
+
+class MissingConfigValue(ValueError):
     pass
 
 
@@ -142,7 +148,7 @@ class SplitProcess:
         
         # Entraîner le modèle
         model.fit(data.X_train, data.y_train)
-        data.models[name] = model
+        data.models[name] = (None, model)
 
         return data
     
@@ -229,28 +235,51 @@ class SplitProcess:
 @define(kw_only=True)
 class TrackedPipeline:
     name: str
-    loading_data: Optional[LoadingData] = None
-    split_data: Optional[SplitData] = None
-    states: List[DataState] = []
+    nb_shapes: int
+    selection: bool
+    loading_data: Optional[LoadingData] = field(init=False, default=None)
+    split_data: Optional[SplitData] = field(init=False, default=None)
+    states: List[DataState] = field(init=False, factory=list)
+
+
+    @classmethod
+    def from_config(cls, name: str, **config: Any) -> Self:
+
+        if "nb_shapes" not in config or not isinstance(config["nb_shapes"], int):
+            raise MissingConfigValue("Given %s but nb_shapes as int expected.", config)
+        if "selection" not in config or not isinstance(config["selection"], bool):
+            raise MissingConfigValue("Given %s but selection as bool expected.", config)
+
+        nb_shapes: int = config["nb_shapes"]
+        selection: bool = config["selection"]
+        _name = f"{name}_{nb_shapes}_{selection}"
+        print(f"Starting {_name}...")
+        return cls(name=_name, nb_shapes=nb_shapes, selection=selection)
 
 
     @timer_pipeline("LOADING DATABASE")
-    def load_data(self, /, *, target_name: str, name: str = "initial_data", from_save: bool = False, nb_shape: int = NB_SHAPE) -> Self:
+    def load_data(self, /, *, target_name: str, name: str = "initial_data", from_save: bool = False) -> Self:
     
         self.loading_data = LoadingProcess.load_data(
             target_name=target_name,
             from_save=from_save,
-            nb_shape=nb_shape
+            nb_shape=self.nb_shapes
         )
 
         metadata = {
             "SIZE": self.loading_data.data_size,
             "TARGET": pd.DataFrame(self.loading_data.current_y, columns=[target_name]).loc[:, target_name].value_counts().to_dict(),
-            "NB_PATCHES": nb_shape,
+            "NB_PATCHES": self.nb_shapes,
             "FEATURES": list(self.loading_data.classes),
             "OUTLIERS_ANALYSIS": outlier_analysis(pd.DataFrame(self.loading_data.current_X, columns=self.loading_data.classes)).to_dict(),
         }
-        self.add_state(name, metadata)
+
+        self.add_state(
+            X=self.loading_data.current_X,
+            y=self.loading_data.current_y,
+            name=name, 
+            metadata=metadata
+        )
         return self
 
     
@@ -284,7 +313,12 @@ class TrackedPipeline:
         })
 
         # Enregistrer le nouvel état
-        self.add_state(f"after_{name}", metadata)
+        self.add_state(
+            X=self.loading_data.current_X,
+            y=self.loading_data.current_y,
+            name=f"after_{name}", 
+            metadata=metadata
+        )
         return self
 
 
@@ -324,7 +358,12 @@ class TrackedPipeline:
         })
 
         # Enregistrer l'état actuel
-        self.add_state("train_test_split", metadata)
+        self.add_state(
+            X=loading_data.current_X,
+            y=loading_data.current_y,
+            name="train_test_split", 
+            metadata=metadata
+        )
         return self
     
 
@@ -353,12 +392,12 @@ class TrackedPipeline:
             "training_data_shape": list(self.split_data.X_train.shape)
         })
 
-        self.states.append(DataState(
+        self.add_state(
             X=np.array([]),  # Placeholder vide
             y=np.array([]),  # Placeholder vide
             name=f"model_{name}",
             metadata=metadata
-        ))
+        )
 
         return self
 
@@ -396,15 +435,15 @@ class TrackedPipeline:
             "scoring": scoring,
             "best_score": search.best_score_,
             "model_params": model.get_params(),
-            "training_data_shape": list(self.loading_data.X_train.shape)
+            "training_data_shape": list(self.split_data.X_train.shape)
         })
 
-        self.states.append(DataState(
+        self.add_state(
             X=np.array([]),  # Placeholder vide
             y=np.array([]),  # Placeholder vide
-            name=f"{name}",
+            name=f"model_{name}",
             metadata=metadata
-        ))
+        )
 
         return self
     
@@ -430,12 +469,12 @@ class TrackedPipeline:
             "confusion_matrix": scores["cm"]
         })
 
-        self.states.append(DataState(
+        self.add_state(
             X=np.array([]),  # Placeholder vide
             y=np.array([]),  # Placeholder vide
             name=f"eval_{name}",
             metadata=metadata
-        ))
+        )
 
         return self
 
@@ -450,7 +489,7 @@ class TrackedPipeline:
         split_data = unwrap(self.split_data)
         # Prédire les classes
         if name_model is None:
-            for n, m in split_data.models.items():
+            for n, (_, m) in split_data.models.items():
                 self.evaluate(model=m, name=n, **metadata)
         else:
             if name_model not in split_data.models:
@@ -483,28 +522,35 @@ class TrackedPipeline:
         metadata.update({
             **pred_dict
         })
-        self.states.append(DataState(
+
+        self.add_state(
             X=np.array([]),  # Placeholder vide
             y=np.array([]),  # Placeholder vide
             name=f"{name}",
             metadata=metadata
-        ))
+        )
 
         return self
 
 
-    def add_state(self, name: str, metadata: Optional[Dict[str, Any]] = None) -> None:
+    def add_state(self, name: str, X: NDArrayNum, y: NDArrayStr, metadata: Optional[Dict[str, Any]] = None) -> Self:
         """Ajoute l'état actuel des données à l'historique"""
         if metadata is None:
             metadata = {}
 
-        if self.current_X is not None and self.current_y is not None:
+        if X is not None and y is not None:
             self.states.append(DataState(
-                X=self.current_X,
-                y=self.current_y,
+                X=X,
+                y=y,
                 name=name,
                 metadata=metadata
             ))
+
+        return self
+    
+
+    def get_state(self, /, *, name: str) -> DataState:
+        return next((s for s in self.states if name in s.name))
 
 
     def add_time(self, name: str, run_time: float) -> Self:
@@ -516,31 +562,33 @@ class TrackedPipeline:
 
 
     @timer_pipeline("EXPORT DATABASE")
-    def export_database(self, /, *, path: Path) -> Self:
-        datastate = next((ds for ds in self.states if ds.name == "initial_data"))
-        database = pd.concat([
-            pd.DataFrame(datastate.X, columns=self.loading_data.classes),
-            pd.DataFrame(datastate.y, columns=["Letter"])
-        ])
-        database.to_feather(path)
+    def export_database(self, /, *, export: bool, path: Path) -> Self:
+        if export:
+            datastate = next((ds for ds in self.states if ds.name == "initial_data"))
+            loading_data = unwrap(self.loading_data)
+            database = pd.concat([
+                pd.DataFrame(datastate.X, columns=loading_data.classes),
+                pd.DataFrame(datastate.y, columns=["Letter"])
+            ])
+            database.to_feather(path)
         return self
 
     
     @timer_pipeline("EXPORT REPORT")
     def export_report(
         self, /, *,
-        file_path: Optional[Path] = None,
-        selection: bool = False
+        file_path: Optional[Path] = None
     ) -> Self:
         """Exporte un rapport complet sur le pipeline et ses transformations"""
         if file_path is None:
-            file_path = REPORT_PATH / f"{self.name}_{selection}_report.yaml"
+            file_path = REPORT_PATH / f"{self.name}_report.yaml"
         file_path_for_quarto = REPORT_PATH / "report.yaml"
+        loading_data = unwrap(self.loading_data)
 
         # Construire le rapport
         report = {
             "pipeline_name": self.name,
-            "transformers": self.transformers,
+            "transformers": loading_data.transformers,
             "states": {state.name: state.to_dict() for state in self.states}
         }
 
@@ -551,4 +599,58 @@ class TrackedPipeline:
         with open(file_path_for_quarto, "w", encoding="utf-8") as file:
             yaml.dump(report, file)
 
+        return self
+    
+
+    @timer_pipeline("EXPORT GRAPH")
+    def export_graphes(self, /, *, graph_folder: Optional[Path]=None, force_plot: bool=False) -> Self:
+
+        if graph_folder is None:
+            graph_folder = GRAPH_PATH / f"graphs_{self.nb_shapes}_{self.selection}"
+        graph_folder_for_quarto = Path("graphs")
+        if not os.path.exists(graph_folder):
+            os.makedirs(graph_folder)
+        if not os.path.exists(graph_folder_for_quarto):
+            os.makedirs(graph_folder_for_quarto)
+
+        db_before_scaling = self.get_state(name="letter_to_remove")
+        db_after_scaling = self.get_state(name="normalisation")
+        db_grid = self.get_state(name="search_svm")
+
+        loading_data = unwrap(self.loading_data)
+        split_data = unwrap(self.split_data)
+        labels: NDArrayStr = np.unique(loading_data.current_y)
+
+        if self.nb_shapes < 10:
+            visualize_scaling(graph_folder, graph_folder_for_quarto, db_before_scaling.X, db_after_scaling.X)
+            visualize_correlation(graph_folder, graph_folder_for_quarto, db_after_scaling.X, loading_data.classes)
+
+        visualize_train_test_split(graph_folder, graph_folder_for_quarto, split_data.y_train, split_data.y_test)
+        for model_name, metadata in ((s.name, s.metadata) for s in self.states if "eval" in s.name):
+            visualize_confusion_matrix(graph_folder, graph_folder_for_quarto, metadata["confusion_matrix"], labels, model_name)
+
+        unique_C, inv_C = np.unique(db_grid.metadata["cv_results"]["param_C"], return_inverse=True)
+        unique_gamma, inv_gamma = np.unique(db_grid.metadata["cv_results"]["param_gamma"], return_inverse=True)
+        grid = np.zeros((len(unique_C), len(unique_gamma)))
+        grid[inv_C, inv_gamma] = db_grid.metadata["cv_results"]["mean_test_score"]
+
+        visualize_grid_search(graph_folder, graph_folder_for_quarto, grid, unique_C, unique_gamma, "SVC")
+
+        plt.tight_layout()
+        if force_plot:
+            plt.show()
+
+        return self
+
+
+    @timer_pipeline("BUILD REPORT")
+    def build_quarto(self, /) -> Self:
+        test_quarto = subprocess.run(["quarto", "--version"], stdout = subprocess.DEVNULL)
+        if FORCE_REPORT & (test_quarto.returncode == 0):
+            subprocess.run(["quarto", "render", ".\coptic_report.qmd", 
+                            "--to", "pdf,revealjs",
+                            "--output", f"OCR_{self.nb_shapes}_{self.selection}",
+                            "--output-dir", "report\quarto"], 
+                            stdout = subprocess.DEVNULL,
+                            stderr = subprocess.DEVNULL)
         return self
