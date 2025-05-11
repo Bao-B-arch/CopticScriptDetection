@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 from common.config import IMAGE_SIZE
-from common.types import NDArrayBool, NDArrayFloat, NDArrayInt
+from common.types import NDArrayBool, NDArrayFloat, NDArrayInt, NDArrayNum, NDArrayStr
 
 
 def mean_grayscale(database: Dict[str, List[NDArrayInt]], data_size: int, shape: int) -> pd.DataFrame:
@@ -45,17 +45,17 @@ def mean_grayscale(database: Dict[str, List[NDArrayInt]], data_size: int, shape:
     return df
 
 
-def export_visual_features(path: Path, database: pd.DataFrame, shape: int, factor: int = 10) -> None:
+def export_visual_features(path: Path, images: NDArrayNum, names: NDArrayStr, shape: int, factor: int = 10) -> None:
     shape_sqrt = int(np.sqrt(shape))
     if not os.path.exists(path):
         os.makedirs(path)
 
-    for idx, row in database.groupby("Letter").first().iterrows():
+    for idx, img in zip(names, images):
         curr_path = path / str(idx)
         if not os.path.exists(curr_path):
             os.makedirs(curr_path)
         curr_path = curr_path / f"example_{idx}.png"
 
-        arr = np.reshape(row.to_numpy().astype(np.uint8), (-1, shape_sqrt))
+        arr = np.reshape(img.astype(np.uint8), (-1, shape_sqrt))
         zoom_arr = np.kron(arr, np.ones((factor, factor))).astype(np.uint8)
         cv2.imwrite(str(curr_path), zoom_arr)

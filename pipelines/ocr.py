@@ -65,6 +65,5 @@ def run_ocr(**config: Any) -> None:
             path=SAVED_DATABASE_PATH,
     )\
         .export_graphes(force_plot=FORCE_PLOT)\
+        .export_visual_features()\
         .build_quarto()
-
-    # compute_features.export_visual_features(EXPORT_PATH, pd.DataFrame(), nb_shapes, FACTOR_SIZE_EXPORT)

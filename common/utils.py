@@ -1,6 +1,7 @@
-from typing import Optional, Tuple, TypeVar
+from typing import Optional, Tuple, TypeVar, cast
 import numpy as np
 import pandas as pd
+from pandas import RangeIndex
 
 from common.types import NDArrayNum
 
@@ -34,34 +35,34 @@ def mad(data: NDArrayNum) -> Tuple[float, float]:
     return float(median), float(mad_value)
 
 
-def outlier_analysis(data: pd.DataFrame) -> pd.DataFrame:
+def outlier_analysis(data: NDArrayNum) -> pd.DataFrame:
 # Analyse statistique des outliers avec MAD
     outliers_stats = pd.DataFrame(
-        index=data.columns,
+        index=RangeIndex(data.shape[1]),
         columns=['nb_outliers', 'percent', 
                  'median', 'mad', 
                  'min_original', 'max_original', 
                  'mean_original', 'std_original', 
                  'lower_bound', 'upper_bound']
     )
-    for col in data.columns:
+    for ncol, col in enumerate(data.T):
         # Calcul des outliers avec la méthode MAD
-        median_val, mad_val = mad(data[col].to_numpy())
+        median_val, mad_val = mad(col)
 
         # Seuil standard : points à plus de 3 MAD de la médiane
         lower_bound = median_val - 3 * mad_val
         upper_bound = median_val + 3 * mad_val
 
-        outliers = data[(data[col] < lower_bound) | (data[col] > upper_bound)]
-        outliers_stats.loc[col, 'nb_outliers'] = len(outliers)
-        outliers_stats.loc[col, 'percent'] = len(outliers) / len(data) * 100
-        outliers_stats.loc[col, 'median'] = float(median_val)
-        outliers_stats.loc[col, 'mad'] = float(mad_val)
-        outliers_stats.loc[col, 'min_original'] = float(data[col].min())
-        outliers_stats.loc[col, 'max_original'] = float(data[col].max())
-        outliers_stats.loc[col, 'mean_original'] = float(data[col].mean())
-        outliers_stats.loc[col, 'std_original'] = float(data[col].std())
-        outliers_stats.loc[col, 'lower_bound'] = float(lower_bound)
-        outliers_stats.loc[col, 'upper_bound'] = float(upper_bound)
+        outliers = data[(col < lower_bound) | (col > upper_bound)]
+        outliers_stats.loc[ncol, 'nb_outliers'] = len(outliers)
+        outliers_stats.loc[ncol, 'percent'] = len(outliers) / len(data) * 100
+        outliers_stats.loc[ncol, 'median'] = float(median_val)
+        outliers_stats.loc[ncol, 'mad'] = float(mad_val)
+        outliers_stats.loc[ncol, 'min_original'] = float(np.min(col))
+        outliers_stats.loc[ncol, 'max_original'] = float(np.min(col))
+        outliers_stats.loc[ncol, 'mean_original'] = float(np.mean(col))
+        outliers_stats.loc[ncol, 'std_original'] = float(np.std(col))
+        outliers_stats.loc[ncol, 'lower_bound'] = float(lower_bound)
+        outliers_stats.loc[ncol, 'upper_bound'] = float(upper_bound)
 
     return outliers_stats

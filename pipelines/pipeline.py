@@ -15,7 +15,7 @@ from sklearn.model_selection import RandomizedSearchCV, StratifiedShuffleSplit, 
 import yaml
 
 from common import compute_features, data_loading
-from common.config import DATABASE_PATH, EXPORT_PATH, FORCE_REPORT, GRAPH_PATH, NB_SHAPE, \
+from common.config import DATABASE_PATH, EXPORT_PATH, FACTOR_SIZE_EXPORT, FORCE_REPORT, GRAPH_PATH, NB_SHAPE, \
     RANDOM_STATE, REPORT_PATH, SAVED_DATABASE_PATH, TEST_TRAIN_RATIO
 from common.datastate import DataState
 from common.graph_utils import visualize_confusion_matrix, visualize_correlation, visualize_grid_search, visualize_scaling, visualize_train_test_split
@@ -294,10 +294,10 @@ class TrackedPipeline:
 
         metadata = {
             "SIZE": self.loading_data.data_size,
-            "TARGET": {k: v for (k, v) in np.unique(self.loading_data.current_y, return_counts=True)},
+            "TARGET": {k: v for (k, v) in zip(*np.unique(self.loading_data.current_y, return_counts=True))},
             "NB_PATCHES": self.nb_shapes,
             "FEATURES": list(self.loading_data.classes),
-            "OUTLIERS_ANALYSIS": outlier_analysis(pd.DataFrame(self.loading_data.current_X, columns=self.loading_data.classes)).to_dict(),
+            "OUTLIERS_ANALYSIS": outlier_analysis(self.loading_data.current_X).to_dict(),
         }
 
         self.add_state(
@@ -590,7 +590,7 @@ class TrackedPipeline:
     @timer_pipeline("EXPORT DATABASE")
     def export_database(self, /, *, export: bool, path: Path) -> Self:
         if export:
-            datastate = self.get_state(name="initial_state")
+            datastate = self.get_state(name="initial")
             loading_data = unwrap(self.loading_data)
             database = pd.concat([
                 pd.DataFrame(datastate.X, columns=loading_data.classes),
@@ -666,6 +666,16 @@ class TrackedPipeline:
         if force_plot:
             plt.show()
 
+        return self
+    
+
+    @timer_pipeline("EXPORT VISUAL FEATURES")
+    def export_visual_features(self, /, *, export_path: Optional[Path] = None) -> Self:
+        if export_path is None:
+            export_path = EXPORT_PATH / self.name
+        state = self.get_state(name="initial")
+        unique, idx = np.unique(state.y, return_index=True)
+        compute_features.export_visual_features(export_path, state.X[idx], unique, self.nb_shapes, FACTOR_SIZE_EXPORT)
         return self
 
 
