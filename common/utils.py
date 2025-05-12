@@ -1,4 +1,4 @@
-from typing import Optional, Tuple, TypeVar, cast
+from typing import Optional, Tuple, TypeVar
 import numpy as np
 import pandas as pd
 from pandas import RangeIndex
@@ -18,6 +18,21 @@ def unwrap(obj: Optional[T], msg: str = "Cannot unwrap %s") -> T:
 
 def population_std(x: NDArrayNum) -> float:
     return float(np.std(x, ddof=0))
+
+
+def jaccard_index(a: NDArrayNum, b: NDArrayNum) -> float:
+    union = len(set(a) | set(b))
+    inter = len(set(a) & set(b))
+
+    return inter / float(union) if union != 0 else 0.0
+
+
+def subspace_similarity(components1: NDArrayNum, components2: NDArrayNum) -> float:
+    """Calcule la similarité entre 2 sous-espaces via les valeurs singulières"""
+    U1, _ = np.linalg.qr(components1.T)
+    U2, _ = np.linalg.qr(components2.T)
+    shape = min(components1.shape[0], components2.shape[0])
+    return np.linalg.norm(U1.T @ U2, ord='nuc') / float(shape) if shape != 0 else 0.0
 
 
 def mad(data: NDArrayNum) -> Tuple[float, float]:

@@ -2,8 +2,10 @@ import os
 from typing import Any
 
 import numpy as np
+from sklearn.calibration import LinearSVC
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.feature_selection import SelectKBest
+from sklearn.feature_selection import RFE
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
@@ -13,11 +15,11 @@ from pipelines.pipeline import TrackedPipeline
 
 
 def run_ocr(**config: Any) -> None:
-
+    ## TODO selection does nothing currently
     # Retirer les lettres du .env
     remover = LetterRemover()
     # pour features selection
-    selector = SelectKBest(k=4)
+    selector = RFE(LinearSVC(penalty="l1", dual=False, random_state=RANDOM_STATE), n_features_to_select=4)
     # model svm
     param_grid = {
         "C": np.logspace(-3, 5, 7).tolist(),

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from itertools import combinations
 import os
 from pathlib import Path
 import subprocess
@@ -9,18 +10,22 @@ from attr import define, field
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
+from sklearn import clone
 from sklearn.base import BaseEstimator
+from sklearn.decomposition import PCA
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.metrics import confusion_matrix, matthews_corrcoef, accuracy_score
-from sklearn.model_selection import RandomizedSearchCV, StratifiedShuffleSplit, train_test_split
+from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold, StratifiedShuffleSplit, train_test_split
 import yaml
 
 from common import compute_features, data_loading
-from common.config import DATABASE_PATH, EXPORT_PATH, FACTOR_SIZE_EXPORT, FORCE_REPORT, GRAPH_PATH, NB_SHAPE, \
+from common.config import DATABASE_PATH, EXPORT_PATH, FACTOR_SIZE_EXPORT, FORCE_PLOT, FORCE_REPORT, GRAPH_PATH, NB_SHAPE, \
     RANDOM_STATE, REPORT_PATH, SAVED_DATABASE_PATH, TEST_TRAIN_RATIO
 from common.datastate import DataState
 from common.graph_utils import visualize_confusion_matrix, visualize_correlation, visualize_grid_search, visualize_scaling, visualize_train_test_split
+from common.transformer import get_components, get_sorted_idx
 from common.types import NDArrayNum, NDArrayStr
-from common.utils import outlier_analysis, unwrap
+from common.utils import jaccard_index, outlier_analysis, subspace_similarity, unwrap
 from pipelines.data_stages import LoadingData, SplitData
 from pipelines.decorator import timer_pipeline
 
@@ -348,6 +353,121 @@ class TrackedPipeline:
         return self
 
 
+    @timer_pipeline("TEST TRANSFORMER")
+    def test_transform(
+        self, /, *,
+        transformer: BaseEstimator,
+        name: str,
+        model: BaseEstimator,
+        cv: StratifiedKFold
+    ) -> Dict[str, Any]:
+
+        loading_data = unwrap(self.loading_data)
+        X = loading_data.current_X
+        y = loading_data.current_y
+
+        n_features = X.shape[1]
+        n_splits = cv.get_n_splits()
+        is_selection = not isinstance(transformer, (PCA, LinearDiscriminantAnalysis))
+        n_component = len(np.unique(y)) if isinstance(transformer, LinearDiscriminantAnalysis) else n_features
+    
+        mcc_sum_progression: NDArrayNum = np.zeros(n_features)
+        mcc_sumsq_progression: NDArrayNum = np.zeros(n_features)
+        all_selected: NDArrayNum = np.zeros((n_splits, n_features))
+        all_components: NDArrayNum = np.zeros((n_splits, n_component, n_features))
+
+        for nfold, (train_idx, test_idx) in enumerate(cv.split(X, y)):
+            X_train = X[train_idx]
+            X_test = X[test_idx]
+            ## cloning the transformer to ensure previous loops does not affect the transformer state
+            transformer_clone = clone(transformer)
+            transformer_clone.fit(X_train, y[train_idx])
+
+            ## computing scores for the whole fold
+
+            if is_selection:
+                sorted_idx = get_sorted_idx(transformer_clone)
+            else:
+                sorted_idx = np.array(range(n_features))
+                all_components[nfold] = get_components(transformer_clone)
+            all_selected[nfold] = sorted_idx
+
+            X_train_trans = transformer_clone.transform(X_train)
+            X_test_trans = transformer_clone.transform(X_test)
+
+            for k in range(1, n_features + 1):
+
+                model_clone = clone(model)
+                X_train_k = X_train_trans[:, sorted_idx[:k]]
+                X_test_k = X_test_trans[:, sorted_idx[:k]]
+
+                model_clone.fit(X_train_k, y[train_idx])
+                y_pred = model_clone.predict(X_test_k)
+                mcc = matthews_corrcoef(y[test_idx], y_pred)
+                mcc_sum_progression[k-1] += mcc
+                mcc_sumsq_progression[k-1] += mcc*mcc
+
+        if is_selection:
+            stability = [
+                float(np.mean([jaccard_index(c1, c2) for c1, c2 in combinations(all_selected[:, :k], 2)]))
+                for k in range(n_features)
+            ]
+        else:
+            stability = [
+                float(np.mean([subspace_similarity(c1, c2) for c1, c2 in combinations(all_components[:, :k, :], 2)]))
+                for k in range(n_features)
+            ]
+
+        result = {
+            "name": name,
+            "transformer_params": {k: str(v) for k, v in transformer.get_params().items()},
+            "mcc_mean_progression": (mcc_sum_progression / n_splits).tolist(),
+            "mcc_var_progression": (mcc_sumsq_progression / n_splits - (mcc_sum_progression / n_splits)**2).tolist(),
+            "stability_scores_progression": stability,
+            "is_selector": is_selection,
+        }
+        return result
+
+
+    def test_transforms(
+        self, /, *,
+        transformers: Dict[str, BaseEstimator],
+        model: BaseEstimator,
+        name: str,
+        cv: int,
+        **metadata: Any
+    ) -> Self:
+        """
+        Entraine un modèle en ajoutant progressivement tous les features transformées par les transformateurs
+        afin de tester les performances de tous les transformateurs
+        """
+
+        result: Dict[str, Any] = {}
+        cv = StratifiedKFold(n_splits=cv)
+
+        for n, transformer in transformers.items():
+            result[n] = self.test_transform(
+                transformer=transformer,
+                name=n,
+                model=model,
+                cv=cv
+            )
+
+        metadata.update({
+            k: v() for k, v in metadata.items() if callable(v)
+        })
+        metadata.update(result)
+
+        # Enregistrer le nouvel état
+        self.add_state(
+            X=self.loading_data.current_X,
+            y=self.loading_data.current_y,
+            name=f"after_{name}",
+            metadata=metadata
+        )
+        return self
+
+
     @timer_pipeline("TRAIN_TEST_SPLIT")
     def split(
         self, /, *,
@@ -608,6 +728,8 @@ class TrackedPipeline:
         """Exporte un rapport complet sur le pipeline et ses transformations"""
         if file_path is None:
             file_path = REPORT_PATH / f"{self.name}_report.yaml"
+        else:
+            file_path = REPORT_PATH / file_path
         file_path_for_quarto = REPORT_PATH / "report.yaml"
         loading_data = unwrap(self.loading_data)
 
@@ -629,7 +751,7 @@ class TrackedPipeline:
     
 
     @timer_pipeline("EXPORT GRAPH")
-    def export_graphes(self, /, *, graph_folder: Optional[Path]=None, force_plot: bool=False) -> Self:
+    def export_graphes(self, /, *, graph_folder: Optional[Path]=None, force_plot: bool=FORCE_PLOT) -> Self:
 
         if graph_folder is None:
             graph_folder = GRAPH_PATH / f"graphs_{self.nb_shapes}_{self.selection}"
@@ -668,6 +790,35 @@ class TrackedPipeline:
 
         return self
     
+
+    @timer_pipeline("EXPORT GRAPH")
+    def export_selection_graphes(self, /, *, graph_folder: Optional[Path]=None, force_plot: bool=FORCE_PLOT) -> Self:
+
+        if graph_folder is None:
+            graph_folder = GRAPH_PATH / f"graphs_{self.nb_shapes}_{self.selection}"
+
+        metadata = self.get_state(name="test_selection_features").metadata
+
+        plt.figure(figsize=(10, 4))
+        plt.subplot(121)
+        for n, res in metadata.items():
+            plt.errorbar(range(self.nb_shapes), res["mcc_mean_progression"], yerr=np.sqrt(res["mcc_var_progression"]), label=n)
+        plt.title("Performance MCC")
+        plt.legend()
+
+        plt.subplot(122)
+        for n, res in metadata.items():
+            plt.plot(res["stability_scores_progression"], label=f"Jaccard {n}" if res["is_selector"] else f"Subspace Sim {n}")
+        plt.title("Stabilité des Sélections/Composantes")
+        plt.legend()
+
+        plt.tight_layout()
+        plt.savefig(graph_folder / "selection.svg")
+        if force_plot:
+            plt.show()
+
+        return self
+
 
     @timer_pipeline("EXPORT VISUAL FEATURES")
     def export_visual_features(self, /, *, export_path: Optional[Path] = None) -> Self:
