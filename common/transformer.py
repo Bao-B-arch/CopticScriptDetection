@@ -1,13 +1,26 @@
 
 from typing import Dict, List, Optional, Self, Tuple
 import numpy as np
-from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.base import BaseEstimator, TransformerMixin, check_is_fitted
 from sklearn.decomposition import PCA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from sklearn.feature_selection import RFE
+from sklearn.feature_selection import RFE, SelectorMixin
 
 from common.config import LETTER_TO_REMOVE
 from common.types import NDArrayBool, NDArrayNum
+
+
+class DoNothingSelector(BaseEstimator, SelectorMixin):
+    """Transformateur Nothing"""
+
+    def fit(self, X: NDArrayNum, y: Optional[NDArrayNum]=None) -> Self:
+        self.scores_ = np.ones(X.shape[1], dtype=bool)
+        return self
+
+
+    def _get_support_mask(self) -> NDArrayBool:
+        check_is_fitted(self)
+        return self.scores_
 
 
 class LetterRemover(BaseEstimator, TransformerMixin):

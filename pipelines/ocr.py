@@ -2,24 +2,23 @@ import os
 from typing import Any
 
 import numpy as np
-from sklearn.calibration import LinearSVC
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.feature_selection import RFE
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
 from common.config import FORCE_COMPUTATION, FORCE_PLOT, RANDOM_STATE, SAVED_DATABASE_PATH
 from common.transformer import LetterRemover
+from pipelines.config import parse_config_run
 from pipelines.pipeline import TrackedPipeline
 
 
 def run_ocr(**config: Any) -> None:
-    ## TODO selection does nothing currently
+
     # Retirer les lettres du .env
     remover = LetterRemover()
     # pour features selection
-    selector = RFE(LinearSVC(penalty="l1", dual=False, random_state=RANDOM_STATE), n_features_to_select=4)
+    selector = parse_config_run(config)
+
     # model svm
     param_grid = {
         "C": np.logspace(-3, 5, 7).tolist(),
@@ -47,7 +46,9 @@ def run_ocr(**config: Any) -> None:
             transformer=selector,
             name="selection_features",
             transform_y=True,
-            SELECTED_FEATURES=lambda : [int(i) for i in selector.get_support(indices=True)]
+            SELECTED_FEATURES=lambda : 
+                selector.get_support(indices=True).tolist() if hasattr(selector, "get_support")
+                else selector.coef_.tolist()
     )\
         .split()\
         .train_model_searched(

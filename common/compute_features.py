@@ -20,7 +20,7 @@ def mean_grayscale(database: Dict[str, List[NDArrayInt]], data_size: int, shape:
         for j in range(shape_sqrt):
             col_start = int(j * IMAGE_SIZE / shape_sqrt)
             col_end = int((j + 1) * IMAGE_SIZE / shape_sqrt) if j < shape_sqrt - 1 else IMAGE_SIZE
-            
+
             # Créer un masque pour ce patch
             mask: NDArrayBool = np.zeros((IMAGE_SIZE, IMAGE_SIZE), dtype=bool)
             mask[row_start:row_end, col_start:col_end] = True

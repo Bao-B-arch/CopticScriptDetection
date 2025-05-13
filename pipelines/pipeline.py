@@ -24,7 +24,7 @@ from common.config import DATABASE_PATH, EXPORT_PATH, FACTOR_SIZE_EXPORT, FORCE_
 from common.datastate import DataState
 from common.graph_utils import visualize_confusion_matrix, visualize_correlation, visualize_grid_search, visualize_scaling, visualize_train_test_split
 from common.transformer import get_components, get_sorted_idx
-from common.types import NDArrayNum, NDArrayStr
+from common.types import NDArrayBool, NDArrayNum, NDArrayStr
 from common.utils import jaccard_index, outlier_analysis, subspace_similarity, unwrap
 from pipelines.data_stages import LoadingData, SplitData
 from pipelines.decorator import timer_pipeline
@@ -267,7 +267,7 @@ class SplitProcess:
 class TrackedPipeline:
     name: str
     nb_shapes: int
-    selection: bool
+    selection: str
     loading_data: Optional[LoadingData] = field(init=False, default=None)
     split_data: Optional[SplitData] = field(init=False, default=None)
     states: List[DataState] = field(init=False, factory=list)
@@ -278,11 +278,11 @@ class TrackedPipeline:
 
         if "nb_shapes" not in config or not isinstance(config["nb_shapes"], int):
             raise MissingConfigValue("Given %s but nb_shapes as int expected.", config)
-        if "selection" not in config or not isinstance(config["selection"], bool):
-            raise MissingConfigValue("Given %s but selection as bool expected.", config)
+        if "selection" not in config or not isinstance(config["selection"], str):
+            raise MissingConfigValue("Given %s but selection as str expected.", config)
 
         nb_shapes: int = config["nb_shapes"]
-        selection: bool = config["selection"]
+        selection: str = config["selection"]
         _name = f"{name}_{nb_shapes}_{selection}"
         print(f"Starting {_name}...")
         return cls(name=_name, nb_shapes=nb_shapes, selection=selection)
@@ -375,6 +375,7 @@ class TrackedPipeline:
         mcc_sumsq_progression: NDArrayNum = np.zeros(n_features)
         all_selected: NDArrayNum = np.zeros((n_splits, n_features))
         all_components: NDArrayNum = np.zeros((n_splits, n_component, n_features))
+        all_convergence: NDArrayBool = np.zeros(n_splits)
 
         for nfold, (train_idx, test_idx) in enumerate(cv.split(X, y)):
             X_train = X[train_idx]
@@ -382,7 +383,6 @@ class TrackedPipeline:
             ## cloning the transformer to ensure previous loops does not affect the transformer state
             transformer_clone = clone(transformer)
             transformer_clone.fit(X_train, y[train_idx])
-
             ## computing scores for the whole fold
 
             if is_selection:
@@ -407,6 +407,11 @@ class TrackedPipeline:
                 mcc_sum_progression[k-1] += mcc
                 mcc_sumsq_progression[k-1] += mcc*mcc
 
+            if hasattr(transformer_clone, "estimator_") and hasattr(transformer_clone.estimator_, "n_iter_"):
+                all_convergence[nfold] = transformer_clone.estimator_.n_iter_ < transformer_clone.estimator_.max_iter
+            else:
+                all_convergence[nfold] = True
+
         if is_selection:
             stability = [
                 float(np.mean([jaccard_index(c1, c2) for c1, c2 in combinations(all_selected[:, :k], 2)]))
@@ -425,6 +430,7 @@ class TrackedPipeline:
             "mcc_var_progression": (mcc_sumsq_progression / n_splits - (mcc_sum_progression / n_splits)**2).tolist(),
             "stability_scores_progression": stability,
             "is_selector": is_selection,
+            "convergence": float(sum(all_convergence) / n_splits),
         }
         return result
 
@@ -763,15 +769,17 @@ class TrackedPipeline:
 
         db_before_scaling = self.get_state(name="letter_to_remove")
         db_after_scaling = self.get_state(name="normalisation")
+        db_split = self.get_state(name="train_test_split")
         db_grid = self.get_state(name="search_svm")
 
         loading_data = unwrap(self.loading_data)
         split_data = unwrap(self.split_data)
         labels: NDArrayStr = np.unique(loading_data.current_y)
 
-        if self.nb_shapes < 10:
+        if self.nb_shapes < 20:
             visualize_scaling(graph_folder, graph_folder_for_quarto, db_before_scaling.X, db_after_scaling.X)
-            visualize_correlation(graph_folder, graph_folder_for_quarto, db_after_scaling.X, loading_data.classes)
+        if db_split.X.shape[1] < 10:
+            visualize_correlation(graph_folder, graph_folder_for_quarto, db_split.X, loading_data.classes)
 
         visualize_train_test_split(graph_folder, graph_folder_for_quarto, split_data.y_train, split_data.y_test)
         for model_name, metadata in ((s.name, s.metadata) for s in self.states if "eval" in s.name):
@@ -787,6 +795,8 @@ class TrackedPipeline:
         plt.tight_layout()
         if force_plot:
             plt.show()
+        else:
+            plt.close()
 
         return self
     
@@ -802,12 +812,16 @@ class TrackedPipeline:
         plt.figure(figsize=(10, 4))
         plt.subplot(121)
         for n, res in metadata.items():
+            if res["convergence"] < 1.0:
+                continue
             plt.errorbar(range(self.nb_shapes), res["mcc_mean_progression"], yerr=np.sqrt(res["mcc_var_progression"]), label=n)
         plt.title("Performance MCC")
         plt.legend()
 
         plt.subplot(122)
         for n, res in metadata.items():
+            if res["convergence"] < 1.0:
+                continue
             plt.plot(res["stability_scores_progression"], label=f"Jaccard {n}" if res["is_selector"] else f"Subspace Sim {n}")
         plt.title("Stabilité des Sélections/Composantes")
         plt.legend()
@@ -816,6 +830,8 @@ class TrackedPipeline:
         plt.savefig(graph_folder / "selection.svg")
         if force_plot:
             plt.show()
+        else:
+            plt.close()
 
         return self
 

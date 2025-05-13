@@ -18,6 +18,6 @@ class DataState:
             "shape": list(self.X.shape),
             "metadata": self.metadata
         }
-        if hasattr(self.y, 'value_counts'):
+        if hasattr(self.y, "value_counts"):
             result["class_distribution"] = self.y.value_counts().to_dict()
         return result

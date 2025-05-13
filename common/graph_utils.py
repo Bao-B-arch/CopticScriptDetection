@@ -20,7 +20,7 @@ class MidpointNormalize(Normalize):
 
 def visualize_scaling(graph_folder: Path, graph_folder_for_quarto: Path, data_before: NDArrayNum, data_after: NDArrayNum) -> None:
     """
-    Visualise l'effet du standard scaling avec détection des outliers via MAD
+    Visualise l"effet du standard scaling avec détection des outliers via MAD
     
     Paramètres:
     data (pandas.DataFrame): DataFrame avec les features à visualiser
@@ -38,7 +38,7 @@ def visualize_scaling(graph_folder: Path, graph_folder_for_quarto: Path, data_be
 
     # Boxplot après scaling
     sns.boxplot(data=data_after, ax=axes[1])
-    axes[1].set_title('Distribution Après Standard Scaling')
+    axes[1].set_title("Distribution Après Standard Scaling")
     plt.savefig(graph_folder / "scaling.svg")
     plt.savefig(graph_folder_for_quarto / "scaling.svg")
 
@@ -46,7 +46,7 @@ def visualize_correlation(graph_folder: Path, graph_folder_for_quarto: Path, dat
 
     plt.figure(figsize=(19, 15))
     sns.heatmap(np.corrcoef(data, rowvar=False), xticklabels=labels.tolist(), yticklabels=labels.tolist())
-    plt.title('Correlation Matrix', fontsize=16)
+    plt.title("Correlation Matrix", fontsize=16)
     plt.savefig(graph_folder / "correlation.svg")
     plt.savefig(graph_folder_for_quarto / "correlation.svg")
 
