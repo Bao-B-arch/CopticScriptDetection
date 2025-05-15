@@ -30,8 +30,6 @@ def timer_pipeline(name: str) -> Callable[[_TPMethod[_TP]], _TPMethod[_TP]]:
             run_time = end_time - start_time
             print(f"Lasted {run_time:.2f} seconds.")
             print("-"*NUMBER_SECTION_DEL)
-
-            pipeline.add_time(_name, run_time)
             return res
         return cast(_TPMethod[_TP], wrapper_timer)
     return decorator_timer

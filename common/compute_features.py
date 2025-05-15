@@ -9,22 +9,37 @@ from common.config import IMAGE_SIZE
 from common.types import NDArrayBool, NDArrayFloat, NDArrayInt, NDArrayNum, NDArrayStr
 
 
-def mean_grayscale(database: Dict[str, List[NDArrayInt]], data_size: int, shape: int) -> pd.DataFrame:
-    shape_sqrt = int(np.sqrt(shape))
-    patch_masks: List[NDArrayBool] = []
+def patches_mask(nb_patch_sqrt: int, image_size_sqrt: int = IMAGE_SIZE) -> List[NDArrayBool]:
+    ## no overlap
+    if nb_patch_sqrt >= image_size_sqrt:
+        start_end = np.arange(start=0, stop=image_size_sqrt + 1, dtype=np.int8)
+        inc = 1
+        nb_patch_sqrt = image_size_sqrt
+    else: ## overlap
+        start_end = np.linspace(start=0, stop=image_size_sqrt, num = 2 + nb_patch_sqrt, dtype=np.int8)
+        inc = 2
 
-    for i in range(shape_sqrt):
-        row_start = int(i * IMAGE_SIZE / shape_sqrt)
-        row_end = int((i + 1) * IMAGE_SIZE / shape_sqrt) if i < shape_sqrt - 1 else IMAGE_SIZE
+    patch_masks: List[NDArrayBool] = [
+        np.zeros((image_size_sqrt, image_size_sqrt), dtype=bool) for _ in range(nb_patch_sqrt*nb_patch_sqrt)
+    ]
+
+    for i in range(nb_patch_sqrt):
+        row_start: int = start_end[i]
+        row_end: int = start_end[i + inc]
         
-        for j in range(shape_sqrt):
-            col_start = int(j * IMAGE_SIZE / shape_sqrt)
-            col_end = int((j + 1) * IMAGE_SIZE / shape_sqrt) if j < shape_sqrt - 1 else IMAGE_SIZE
+        for j in range(nb_patch_sqrt):
+            col_start: int = start_end[j]
+            col_end: int = start_end[j + inc]
 
             # Créer un masque pour ce patch
-            mask: NDArrayBool = np.zeros((IMAGE_SIZE, IMAGE_SIZE), dtype=bool)
-            mask[row_start:row_end, col_start:col_end] = True
-            patch_masks.append(mask)
+            mask_idx = i*nb_patch_sqrt + j
+            patch_masks[mask_idx][row_start:row_end, col_start:col_end] = True
+    return patch_masks
+
+
+def patches_features(database: Dict[str, List[NDArrayInt]], data_size: int, shape: int) -> pd.DataFrame:
+    shape_sqrt = int(np.sqrt(shape))
+    patch_masks: List[NDArrayBool] = patches_mask(shape_sqrt)
 
     columns = [str(i) for i in range(shape)] + ["Letter"]
     df = pd.DataFrame(columns=columns, index=pd.RangeIndex(0, data_size))

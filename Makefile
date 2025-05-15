@@ -23,6 +23,14 @@ install_venv:
 install: install_venv
 	$(PIP) install --upgrade -r ./requirements.txt
 
+# unit testing
+test:
+	$(PYTEST) -v
+
 # type annotations
 mypy:
 	$(MYPY) . --strict
+
+run:
+	$(BIN)\activate
+	$(PYTHON) main.py $(ARGS)

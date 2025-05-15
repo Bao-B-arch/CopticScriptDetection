@@ -1,16 +1,16 @@
 
 from typing import Dict, List, Optional, Self, Tuple
 import numpy as np
-from sklearn.base import BaseEstimator, TransformerMixin, check_is_fitted
+from sklearn.base import check_is_fitted
 from sklearn.decomposition import PCA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from sklearn.feature_selection import RFE, SelectorMixin
+from sklearn.feature_selection import RFE
 
 from common.config import LETTER_TO_REMOVE
-from common.types import NDArrayBool, NDArrayNum
+from common.types import NDArrayBool, NDArrayNum, Selector, Transformer
 
 
-class DoNothingSelector(BaseEstimator, SelectorMixin):
+class DoNothingSelector(Selector):
     """Transformateur Nothing"""
 
     def fit(self, X: NDArrayNum, y: Optional[NDArrayNum]=None) -> Self:
@@ -23,7 +23,7 @@ class DoNothingSelector(BaseEstimator, SelectorMixin):
         return self.scores_
 
 
-class LetterRemover(BaseEstimator, TransformerMixin):
+class LetterRemover(Transformer):
     """Transformateur pour supprimer des lettres spécifiques du jeu de données"""
     
     def __init__(self, letters_to_remove: Optional[List[str]]=None):
@@ -56,7 +56,7 @@ class LetterRemover(BaseEstimator, TransformerMixin):
         return self.removed_counts
 
 
-def get_sorted_idx(transformer: BaseEstimator) -> NDArrayNum:
+def get_sorted_idx(transformer: Transformer) -> NDArrayNum:
     if isinstance(transformer, RFE):
         scores = (1 / transformer.ranking_)
     elif hasattr(transformer, "scores_"):
@@ -70,7 +70,7 @@ def get_sorted_idx(transformer: BaseEstimator) -> NDArrayNum:
     
     return np.argsort(scores)[::-1]
 
-def get_components(transformer: BaseEstimator) -> NDArrayNum:
+def get_components(transformer: Transformer) -> NDArrayNum:
     if isinstance(transformer, PCA):
         scores = transformer.components_
     elif isinstance(transformer, LinearDiscriminantAnalysis):

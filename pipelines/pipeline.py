@@ -18,13 +18,14 @@ from sklearn.metrics import confusion_matrix, matthews_corrcoef, accuracy_score
 from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold, StratifiedShuffleSplit, train_test_split
 import yaml
 
-from common import compute_features, data_loading
+from common.compute_features import export_visual_features, patches_features
 from common.config import DATABASE_PATH, EXPORT_PATH, FACTOR_SIZE_EXPORT, FORCE_PLOT, FORCE_REPORT, GRAPH_PATH, NB_SHAPE, \
     RANDOM_STATE, REPORT_PATH, SAVED_DATABASE_PATH, TEST_TRAIN_RATIO
+from common.data_loading import load_database, load_database_from_save
 from common.datastate import DataState
 from common.graph_utils import visualize_confusion_matrix, visualize_correlation, visualize_grid_search, visualize_scaling, visualize_train_test_split
 from common.transformer import get_components, get_sorted_idx
-from common.types import NDArrayBool, NDArrayNum, NDArrayStr
+from common.types import NDArrayBool, NDArrayNum, NDArrayStr, Transformer
 from common.utils import jaccard_index, outlier_analysis, subspace_similarity, unwrap
 from pipelines.data_stages import LoadingData, SplitData
 from pipelines.decorator import timer_pipeline
@@ -54,8 +55,8 @@ class LoadingProcess:
 
     @classmethod
     def __load_data_from_files(cls, /, *, nb_shape: int, target_name: str) -> LoadingData:
-        raw_data, data_size = data_loading.load_database(DATABASE_PATH)
-        data = compute_features.mean_grayscale(raw_data, data_size, nb_shape)
+        raw_data, data_size = load_database(DATABASE_PATH)
+        data = patches_features(raw_data, data_size, nb_shape)
         data = data.dropna(axis=0)
         
         return LoadingProcess.__to_data(data=data, target_name=target_name, data_size=data_size)
@@ -63,7 +64,7 @@ class LoadingProcess:
 
     @classmethod
     def __load_data_from_save(cls, /, *, target_name: str) -> LoadingData:
-        data, data_size = data_loading.load_database_from_save(SAVED_DATABASE_PATH)
+        data, data_size = load_database_from_save(SAVED_DATABASE_PATH)
         
         return LoadingProcess.__to_data(data=data, target_name=target_name, data_size=data_size)
 
@@ -82,7 +83,7 @@ class LoadingProcess:
     def transform(
         cls, /, *,
         data: LoadingData,
-        transformer: BaseEstimator,
+        transformer: Transformer,
         name: str,
         fit: bool = True,
         transform_y: bool = False,
@@ -705,14 +706,6 @@ class TrackedPipeline:
         return next((s for s in self.states if name in s.name))
 
 
-    def add_time(self, name: str, run_time: float) -> Self:
-        {
-            "execution_time": run_time,
-            "step": name,
-        }
-        return self
-
-
     @timer_pipeline("EXPORT DATABASE")
     def export_database(self, /, *, export: bool, path: Path) -> Self:
         if export:
@@ -842,7 +835,7 @@ class TrackedPipeline:
             export_path = EXPORT_PATH / self.name
         state = self.get_state(name="initial")
         unique, idx = np.unique(state.y, return_index=True)
-        compute_features.export_visual_features(export_path, state.X[idx], unique, self.nb_shapes, FACTOR_SIZE_EXPORT)
+        export_visual_features(export_path, state.X[idx], unique, self.nb_shapes, FACTOR_SIZE_EXPORT)
         return self
 
 
@@ -850,7 +843,7 @@ class TrackedPipeline:
     def build_quarto(self, /) -> Self:
         if FORCE_REPORT:
             try:
-                subprocess.run(["quarto", "render", ".\coptic_report.qmd", 
+                subprocess.run(["quarto", "render", "coptic_report.qmd", 
                                 "--to", "pdf,revealjs",
                                 "--output", f"OCR_{self.nb_shapes}_{self.selection}",
                                 "--output-dir", "report\quarto"], 

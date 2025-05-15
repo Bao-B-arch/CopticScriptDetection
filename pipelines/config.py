@@ -8,8 +8,9 @@ from sklearn.feature_selection import RFE, SelectFromModel, SelectKBest, f_class
 
 from common.config import RANDOM_STATE
 from common.transformer import DoNothingSelector
+from common.types import Transformer
 
-SELECTORS = {
+SELECTORS: Dict[str, Transformer] = {
     "anova": SelectKBest(score_func=f_classif, k="all"),
     "mi": SelectKBest(score_func=mutual_info_classif, k="all"),
     "pca": PCA(random_state=RANDOM_STATE),
@@ -17,6 +18,7 @@ SELECTORS = {
     "l1": SelectFromModel(LinearSVC(penalty="l1", dual=False, random_state=RANDOM_STATE, C=.1, max_iter=5000)),
     "rfe": RFE(LinearSVC(penalty="l1", dual=False, random_state=RANDOM_STATE, C=.1, max_iter=5000), n_features_to_select=1.0)
 }
+
 
 def parse_config_run(config: Dict[str, Any]) -> BaseEstimator:
     if "selection" not in config or config["selection"] is None:
