@@ -30,7 +30,7 @@ def run_selection(**config: Any) -> None:
             LETTER_REMOVED=remover.get_removed_count,
     )\
         .transform(
-            transformer=StandardScaler(), 
+            transformer=StandardScaler(),
             name="normalisation",
      )\
         .test_transforms(

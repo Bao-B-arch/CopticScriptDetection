@@ -56,9 +56,9 @@ class LoadingProcess:
     @classmethod
     def __load_data_from_files(cls, /, *, nb_shape: int, target_name: str) -> LoadingData:
         raw_data, data_size = load_database(DATABASE_PATH)
-        data = patches_features(raw_data, data_size, nb_shape)
+        data = patches_features(raw_data, data_size, nb_shape, target_name)
         data = data.dropna(axis=0)
-        
+    
         return LoadingProcess.__to_data(data=data, target_name=target_name, data_size=data_size)
 
 
