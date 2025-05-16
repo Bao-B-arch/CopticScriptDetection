@@ -44,10 +44,10 @@ def from_slices_to_masks(slices: NDArrayInt, image_size_sqrt: int) -> NDArrayBoo
 
 def patches_features(database: Dict[str, NDArrayInt], data_size: int, shape: int, target_name: str, image_size_sqrt: int=IMAGE_SIZE) -> pd.DataFrame:
     shape_sqrt = int(np.sqrt(shape))
-    columns: List[str] = [str(i) for i in range(shape)] + [target_name]
+    columns: List[str] = [f"mean_{i}" for i in range(4)] + [f"var_{i}" for i in range(4)] + [target_name]
 
     slices_broadcast: NDArrayInt = patches_slices_broadcast(shape_sqrt, image_size_sqrt)
-    data_array: NDArrayFloat = np.zeros((data_size, shape), dtype=np.float64)
+    data_array: NDArrayFloat = np.zeros((data_size, 2*shape), dtype=np.float64)
     letter_array: NDArrayStr = np.empty(data_size, dtype="<U10")
 
     idx: int = 0
@@ -55,7 +55,8 @@ def patches_features(database: Dict[str, NDArrayInt], data_size: int, shape: int
     for folder, imgs in database.items():
         n_imgs = len(imgs)
         masked_patches = np.stack([imgs[:, rs:re, cs:ce] for rs, re, cs, ce in slices_broadcast], axis=1)
-        data_array[idx:idx+n_imgs] = np.mean(masked_patches, axis=(2, 3))
+        data_array[idx:idx+n_imgs, :4] = np.mean(masked_patches, axis=(2, 3))
+        data_array[idx:idx+n_imgs, 4:] = np.var(masked_patches, axis=(2, 3))
         letter_array[idx:idx+n_imgs] = folder
         idx += n_imgs
 

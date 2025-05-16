@@ -86,9 +86,9 @@ def test_patches_masks(
                 2, 4, 3,
                 pd.DataFrame(
                     data=np.hstack([
-                        np.array([[1.0, 2.0, 0.0, 1.0], [0.0, 1.0, -1.0, 0.5]], dtype=np.float64), 
+                        np.array([[1.0, 2.0, 0.0, 1.0, 0.0, 1.0, 1.0, 2.0], [0.0, 1.0, -1.0, 0.5, 0.0, 1.5, 1.5, 1.25]], dtype=np.float64), 
                         np.array(["alpha", "alpha"], dtype="<U10").reshape(-1, 1)]),
-                    columns=[str(i) for i in range(4)] + ["Letter"]
+                    columns=[f"mean_{i}" for i in range(4)] + [f"var_{i}" for i in range(4)] + ["Letter"]
                 ))
         ])
 def test_patches_features(
