@@ -32,5 +32,4 @@ mypy:
 	$(MYPY) . --strict
 
 run:
-	$(BIN)\activate
-	$(PYTHON) main.py $(ARGS)
+	$(BIN)\activate && $(PYTHON) main.py $(ARGS)

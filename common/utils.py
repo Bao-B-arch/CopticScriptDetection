@@ -45,6 +45,9 @@ def mad(data: NDArrayNum) -> Tuple[float, float]:
     Retourne:
     float: La médiane absolue des écarts
     """
+    print(data)
+    print(data.shape)
+    print(data.dtype)
     median = np.median(data)
     mad_value = np.median(np.abs(data - median))
     return float(median), float(mad_value)

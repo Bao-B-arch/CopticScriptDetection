@@ -6,15 +6,15 @@ import numpy as np
 import pandas as pd
 
 from common.config import IMAGE_SIZE
-from common.types import NDArrayInt
+from common.types import NDArrayUInt
 
 class DimensionException(Exception):
     pass
 
 
-def load_image(image_path: str) -> NDArrayInt:
+def load_image(image_path: str) -> NDArrayUInt:
     # reads image as grayscale
-    img: NDArrayInt = cv2.imread(image_path, 0).astype(np.uint8)
+    img: NDArrayUInt = cv2.imread(image_path, 0).astype(np.uint8)
     height, width = img.shape
 
     if height != IMAGE_SIZE and width != IMAGE_SIZE:
@@ -24,24 +24,24 @@ def load_image(image_path: str) -> NDArrayInt:
     return img
 
 
-def load_folder(folder_path: Path) -> List[NDArrayInt]:
+def load_folder(folder_path: Path) -> NDArrayUInt:
     # charger toutes les images dans un dossier
     # retourner une liste d'images
-    imgs: List[NDArrayInt] = []
+    imgs: List[NDArrayUInt] = []
     for file in os.listdir(folder_path):
         try:
             img = load_image(str(folder_path / file))
+            imgs.append(img)
         except DimensionException as e:
             print(e)
-        imgs.append(img)
 
-    return imgs
+    return np.array(imgs)
 
 
-def load_database(path: Path) -> Tuple[Dict[str, List[NDArrayInt]], int]:
+def load_database(path: Path) -> Tuple[Dict[str, NDArrayUInt], int]:
     # charger tous les dossier de la base des données
     # retourner un dictionnaire d'load_image
-    db: Dict[str, List[NDArrayInt]] = {}
+    db: Dict[str, NDArrayUInt] = {}
     db_size: int = 0
     for folder in os.listdir(path):
         imgs = load_folder(path / folder)

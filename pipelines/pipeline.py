@@ -25,7 +25,7 @@ from common.data_loading import load_database, load_database_from_save
 from common.datastate import DataState
 from common.graph_utils import visualize_confusion_matrix, visualize_correlation, visualize_grid_search, visualize_scaling, visualize_train_test_split
 from common.transformer import get_components, get_sorted_idx
-from common.types import NDArrayBool, NDArrayNum, NDArrayStr, Transformer
+from common.types import NDArrayBool, NDArrayFloat, NDArrayNum, NDArrayStr, Transformer
 from common.utils import jaccard_index, outlier_analysis, subspace_similarity, unwrap
 from pipelines.data_stages import LoadingData, SplitData
 from pipelines.decorator import timer_pipeline
@@ -42,13 +42,20 @@ class LoadingProcess:
     
 
     @classmethod
-    def __to_data(cls, /, *, data: pd.DataFrame, target_name: str, data_size: int) -> LoadingData:
-        classes = data.columns.drop([target_name]).to_numpy()
+    def __to_data(
+        cls, /, *,
+        cols: NDArrayStr,
+        letters: NDArrayStr,
+        data: NDArrayFloat,
+        target_name: str,
+        data_size: int
+    ) -> LoadingData:
+
         return LoadingData(
-            classes=classes,
+            classes=cols,
             target=target_name,
-            current_X=data.loc[:, classes].to_numpy(),
-            current_y=data.loc[:, target_name].to_numpy(),
+            current_X=data,
+            current_y=letters,
             data_size=data_size
         )
 
@@ -56,10 +63,17 @@ class LoadingProcess:
     @classmethod
     def __load_data_from_files(cls, /, *, nb_shape: int, target_name: str) -> LoadingData:
         raw_data, data_size = load_database(DATABASE_PATH)
-        data = patches_features(raw_data, data_size, nb_shape, target_name)
-        data = data.dropna(axis=0)
+
+        cols, letters, data = patches_features(raw_data, data_size, nb_shape, target_name)
+        mask_na = np.any(np.isnan(data), axis=0)
     
-        return LoadingProcess.__to_data(data=data, target_name=target_name, data_size=data_size)
+        return LoadingProcess.__to_data(
+            cols=cols,
+            letters=letters[mask_na],
+            data=data[mask_na],
+            target_name=target_name,
+            data_size=data_size
+        )
 
 
     @classmethod
@@ -192,19 +206,18 @@ class SplitProcess:
         
         cls._validate_param_grid(param_grid=param_grid)
         # Configurer la validation croisée
-        if isinstance(cv, int):
-            cv = StratifiedShuffleSplit(
-                n_splits=cv, 
-                test_size=TEST_TRAIN_RATIO, 
-                random_state=RANDOM_STATE
-            )
+        stratified_cv = StratifiedShuffleSplit(
+            n_splits=cv,
+            test_size=TEST_TRAIN_RATIO,
+            random_state=RANDOM_STATE
+        )
 
         # Effectuer la recherche par grille
         search = RandomizedSearchCV(
-            model, 
-            param_grid, 
-            scoring=scoring, 
-            cv=cv, 
+            model,
+            param_grid,
+            scoring=scoring,
+            cv=stratified_cv,
             n_jobs=-1,
             return_train_score=True
         )

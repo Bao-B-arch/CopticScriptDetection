@@ -1,12 +1,11 @@
 import os
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, Tuple
 import cv2
 import numpy as np
-import pandas as pd
 
 from common.config import IMAGE_SIZE
-from common.types import NDArrayBool, NDArrayFloat, NDArrayInt, NDArrayNum, NDArrayStr
+from common.types import NDArrayBool, NDArrayFloat, NDArrayInt, NDArrayNum, NDArrayStr, NDArrayUInt
 
 
 def patches_slices_broadcast(nb_patch_sqrt: int, image_size_sqrt: int) -> NDArrayInt:
@@ -42,9 +41,16 @@ def from_slices_to_masks(slices: NDArrayInt, image_size_sqrt: int) -> NDArrayBoo
     return patch_masks
 
 
-def patches_features(database: Dict[str, NDArrayInt], data_size: int, shape: int, target_name: str, image_size_sqrt: int=IMAGE_SIZE) -> pd.DataFrame:
+def patches_features(
+        database: Dict[str, NDArrayUInt],
+        data_size: int,
+        shape: int,
+        target_name: str,
+        image_size_sqrt: int=IMAGE_SIZE
+    ) -> Tuple[NDArrayStr, NDArrayStr, NDArrayFloat]:
+
     shape_sqrt = int(np.sqrt(shape))
-    columns: List[str] = [f"mean_{i}" for i in range(4)] + [f"var_{i}" for i in range(4)] + [target_name]
+    columns: NDArrayStr = np.array([f"mean_{i}" for i in range(shape)] + [f"var_{i}" for i in range(shape)] + [target_name])
 
     slices_broadcast: NDArrayInt = patches_slices_broadcast(shape_sqrt, image_size_sqrt)
     data_array: NDArrayFloat = np.zeros((data_size, 2*shape), dtype=np.float64)
@@ -54,16 +60,14 @@ def patches_features(database: Dict[str, NDArrayInt], data_size: int, shape: int
     n_imgs: int = 0
     for folder, imgs in database.items():
         n_imgs = len(imgs)
-        masked_patches = np.stack([imgs[:, rs:re, cs:ce] for rs, re, cs, ce in slices_broadcast], axis=1)
-        data_array[idx:idx+n_imgs, :4] = np.mean(masked_patches, axis=(2, 3))
-        data_array[idx:idx+n_imgs, 4:] = np.var(masked_patches, axis=(2, 3))
+
+        masked_patches = [imgs[:, rs:re, cs:ce] for rs, re, cs, ce in slices_broadcast]
+        data_array[idx:idx+n_imgs, :shape] = np.array([np.mean(patches, axis=(1,2)) for patches in masked_patches]).T
+        data_array[idx:idx+n_imgs, shape:] = np.array([np.var(patches, axis=(1,2)) for patches in masked_patches]).T
         letter_array[idx:idx+n_imgs] = folder
         idx += n_imgs
 
-    return pd.DataFrame(
-        data=np.hstack([data_array, letter_array.reshape(-1, 1)]),
-        columns=columns
-    )
+    return columns, letter_array, data_array
 
 
 def export_visual_features(path: Path, images: NDArrayNum, names: NDArrayStr, shape: int, factor: int = 10) -> None:
