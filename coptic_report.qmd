@@ -16,6 +16,12 @@ format:
         toc-depth: 2
         toc-title: Table des Matières
         slide-level: 3
+    docx:
+        toc: true
+        toc-depth: 2
+        toc-title: Table des Matières
+        colorlinks: true
+        number-sections: true
 jupyter: python3
 ---
 
@@ -24,11 +30,17 @@ jupyter: python3
 \newpage
 
 :::
+```{python}
+#| tags: [parameters]
+name = "16_None"
+
+print(name)
+```
 
 ```{python}
 import yaml
 
-with open("report/report.yaml", "r") as file:
+with open(f"report/OCR_coptic_{name}_report.yaml", "r") as file:
     data = yaml.safe_load(file)
 
 data = data["states"]
@@ -64,7 +76,7 @@ On dénombre `32` lettres dans l'alphabet copte. `{python} str_letter` ont été
 
 :::
 
-![distribution des lettres](./graphs/split.svg){#fig-split}
+![distribution des lettres](`{python} f"./graph/graphs_{name}/split.svg"`){#fig-split}
 
 
 ::: {.content-visible when-format="pdf"}
@@ -83,7 +95,10 @@ Exemple pour une lettre `qima`:
 
 ![lettre](./Images_Traitees/qima/objet_1_585.png){#fig-letter width=40%}
 
-![features](./export/qima/example_qima.png){#fig-features width=40%}
+```{python}
+npatches = data["initial_data"]["metadata"]["NB_PATCHES"]
+```
+![features](`{python} f"./export/{npatches}patches/qima/example_qima.png"`){#fig-features width=40%}
 
 :::
 
@@ -97,7 +112,7 @@ Il sera utilisé un Standard Scaler: $z = \frac{x - m}{s}$ avec $m$ la moyenne e
 
 Un Standard Scaler est simple mais sensible aux valeurs aberrantes. Une analyse de la proportion de potentielles valeurs aberrantes est effectuée afin de vérifier si ce scaler est correct.
 
-![Analyse des outliers](./graphs/scaling.svg){#fig-scaling}
+![Analyse des outliers](`{python} f"./graph/graphs_{name}/scaling.svg"`){#fig-scaling}
 
 ::: {.content-visible when-format="revealjs"}
 
@@ -164,9 +179,9 @@ En utilisant un shuffle split stratifié, on obtient les paramètres optimaux su
 
 ::: {layout-ncol=2}
 
-![RFC](./graphs/cm_eval_RFC.svg){#fig-cm_rfc}
+![RFC](`{python} f"./graph/graphs_{name}/cm_eval_RFC.svg"`){#fig-cm_rfc}
 
-![SVM](./graphs/cm_eval_SVM.svg){#fig-cm_svm}
+![SVM](`{python} f"./graph/graphs_{name}/cm_eval_search_svm.svg"`){#fig-cm_svm}
 
 :::
 

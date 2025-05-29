@@ -494,7 +494,6 @@ class TrackedPipeline:
             file_path = REPORT_PATH / f"{self.name}_report.yaml"
         else:
             file_path = REPORT_PATH / file_path
-        file_path_for_quarto = REPORT_PATH / "report.yaml"
         loading_data = unwrap(self.loading_data)
 
         # Construire le rapport
@@ -504,7 +503,7 @@ class TrackedPipeline:
             "states": {state.name: state.to_dict() for state in self.states}
         }
 
-        dump_yaml.dump(file_path, file_path_for_quarto, report)
+        dump_yaml.dump(file_path, report)
 
         return self
     
@@ -514,11 +513,8 @@ class TrackedPipeline:
 
         if graph_folder is None:
             graph_folder = GRAPH_PATH / f"graphs_{self.nb_shapes}_{self.selection}"
-        graph_folder_for_quarto = Path("graphs")
         if not os.path.exists(graph_folder):
             os.makedirs(graph_folder)
-        if not os.path.exists(graph_folder_for_quarto):
-            os.makedirs(graph_folder_for_quarto)
 
         db_before_scaling = self.get_state(name="letter_to_remove")
         db_after_scaling = self.get_state(name="normalisation")
@@ -530,23 +526,23 @@ class TrackedPipeline:
         labels: NDArrayStr = np.unique(loading_data.current_y)
 
         if self.nb_shapes < 20:
-            visualize_scaling(graph_folder, graph_folder_for_quarto, db_before_scaling.X, db_after_scaling.X)
+            visualize_scaling(graph_folder, db_before_scaling.X, db_after_scaling.X)
         if db_split.X.shape[1] < 10:
             classes = loading_data.classes
             if self.features_selected is not None:
                 classes = classes[self.features_selected]
-            visualize_correlation(graph_folder, graph_folder_for_quarto, db_split.X, classes)
+            visualize_correlation(graph_folder, db_split.X, classes)
 
-        visualize_train_test_split(graph_folder, graph_folder_for_quarto, split_data.y_train, split_data.y_test)
+        visualize_train_test_split(graph_folder, split_data.y_train, split_data.y_test)
         for model_name, metadata in ((s.name, s.metadata) for s in self.states if "eval" in s.name):
-            visualize_confusion_matrix(graph_folder, graph_folder_for_quarto, metadata["confusion_matrix"], labels, model_name)
+            visualize_confusion_matrix(graph_folder, metadata["confusion_matrix"], labels, model_name)
 
         unique_C, inv_C = np.unique(db_grid.metadata["cv_results"]["param_C"], return_inverse=True)
         unique_gamma, inv_gamma = np.unique(db_grid.metadata["cv_results"]["param_gamma"], return_inverse=True)
         grid = np.zeros((len(unique_C), len(unique_gamma)))
         grid[inv_C, inv_gamma] = db_grid.metadata["cv_results"]["mean_test_score"]
 
-        visualize_grid_search(graph_folder, graph_folder_for_quarto, grid, unique_C, "C", unique_gamma, "gamma", "SVC")
+        visualize_grid_search(graph_folder, grid, unique_C, "C", unique_gamma, "gamma", "SVC")
 
         plt.tight_layout()
         if force_plot:
@@ -563,14 +559,15 @@ class TrackedPipeline:
         if graph_folder is None:
             graph_folder = GRAPH_PATH / f"graphs_{self.nb_shapes}_{self.selection}"
 
-        metadata = self.get_state(name="test_selection_features").metadata
-
+        test_selection_state = self.get_state(name="test_selection_features").metadata
+        metadata = test_selection_state.metadata
+    
         plt.figure(figsize=(10, 4))
         plt.subplot(121)
         for n, res in metadata.items():
             if res["convergence"] < 1.0:
                 continue
-            plt.errorbar(range(2*self.nb_shapes), res["mcc_mean_progression"], yerr=np.sqrt(res["mcc_var_progression"]), label=n)
+            plt.errorbar(range(test_selection_state.X.shape[1]), res["mcc_mean_progression"], yerr=np.sqrt(res["mcc_var_progression"]), label=n)
         plt.title("Performance MCC")
         plt.legend()
 
@@ -610,9 +607,10 @@ class TrackedPipeline:
         if FORCE_REPORT:
             try:
                 subprocess.run(["quarto", "render", "coptic_report.qmd", 
-                                "--to", "pdf,revealjs",
+                                "--to", "pdf,revealjs,docx",
                                 "--output", f"OCR_{self.nb_shapes}_{self.selection}",
-                                "--output-dir", "report\\quarto"], 
+                                "--output-dir", "report\\quarto",
+                                "-P", f"name:{self.nb_shapes}_{self.selection}"], 
                                 stdout = subprocess.DEVNULL,
                                 stderr = subprocess.DEVNULL)
             except subprocess.CalledProcessError as e:

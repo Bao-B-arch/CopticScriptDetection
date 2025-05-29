@@ -14,8 +14,10 @@ if __name__ == "__main__":
     main_start_timer = timer()
 
     if args.selection:
+        # utilisé pour lancer la pipeline analysant les sélections de features
         run_selection(nb_shapes=16, selection=["anova", "mi", "l1", "rfe"])
     if args.run:
+        # utilisé pour lancer la pipeline d'entrainement du modèle
         run_ocr(nb_shapes=16, selection=None)
         run_ocr(nb_shapes=16, selection="l1")
         run_ocr(nb_shapes=784, selection=None)

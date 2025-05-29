@@ -97,7 +97,7 @@ def patches_features(
     # sinon, on rentre dans le cas classique
     # on calcule les slices pour retrouver les patches
     # et on calcule pour chaque patch, la moyenne et la variance
-    data_array: NDArrayFloat = np.zeros((data_size, 2*shape), dtype=np.float64)
+    data_array: NDArrayFloat = np.zeros((data_size, 5*shape), dtype=np.float64)
     slices_broadcast: NDArrayInt = patches_slices_broadcast(shape_sqrt, image_size_sqrt)
 
     idx: int = 0
@@ -107,7 +107,9 @@ def patches_features(
 
         masked_patches = [imgs[:, rs:re, cs:ce] for rs, re, cs, ce in slices_broadcast]
         data_array[idx:idx+n_imgs, :shape] = np.array([np.mean(patches, axis=(1,2)) for patches in masked_patches]).T
-        data_array[idx:idx+n_imgs, shape:] = np.array([np.var(patches, axis=(1,2)) for patches in masked_patches]).T
+        data_array[idx:idx+n_imgs, shape:2*shape] = np.array([np.var(patches, axis=(1,2)) for patches in masked_patches]).T
+        data_array[idx:idx+n_imgs, 2*shape:] = np.array([np.abs(np.fft.fft2(patches, axis=(1,2))).reshape(n_imgs, -1)[:, 1:4] for patches in masked_patches]).T
+        
         letter_array[idx:idx+n_imgs] = folder
         idx += n_imgs
 

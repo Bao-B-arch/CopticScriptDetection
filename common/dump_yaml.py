@@ -111,12 +111,10 @@ def setup_yaml_representers() -> None:
     yaml.add_multi_representer(tuple, tuple_representer)
 
 
-def dump(file_path: Path, file_path_for_quarto: Path, report: Dict[str, Any]):
+def dump(file_path: Path, report: Dict[str, Any]):
     setup_yaml_representers()
 
     if not os.path.exists(EXPORT_PATH):
         os.makedirs(EXPORT_PATH)
     with open(file_path, "w", encoding="utf-8") as file:
-        yaml.dump(report, file, default_flow_style=False, allow_unicode=True, width=float('inf'), default_style=None)
-    with open(file_path_for_quarto, "w", encoding="utf-8") as file:
         yaml.dump(report, file, default_flow_style=False, allow_unicode=True, width=float('inf'), default_style=None)

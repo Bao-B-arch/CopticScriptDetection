@@ -19,7 +19,7 @@ class MidpointNormalize(Normalize):
         return np.ma.masked_array(np.interp(value, x, y))
 
 
-def visualize_scaling(graph_folder: Path, graph_folder_for_quarto: Path, data_before: NDArrayNum, data_after: NDArrayNum) -> None:
+def visualize_scaling(graph_folder: Path, data_before: NDArrayNum, data_after: NDArrayNum) -> None:
     """
     Visualise l"effet du standard scaling avec détection des outliers via MAD.
     """
@@ -35,10 +35,9 @@ def visualize_scaling(graph_folder: Path, graph_folder_for_quarto: Path, data_be
     sns.boxplot(data=data_after, ax=axes[1])
     axes[1].set_title("Distribution Après Standard Scaling")
     plt.savefig(graph_folder / "scaling.svg")
-    plt.savefig(graph_folder_for_quarto / "scaling.svg")
 
 
-def visualize_correlation(graph_folder: Path, graph_folder_for_quarto: Path, data: NDArrayNum, labels: NDArrayStr) -> None:
+def visualize_correlation(graph_folder: Path, data: NDArrayNum, labels: NDArrayStr) -> None:
     """
     Visualise les corrélations entre les features via une heatmap.
     """
@@ -51,10 +50,9 @@ def visualize_correlation(graph_folder: Path, graph_folder_for_quarto: Path, dat
     )
     plt.title("Correlation Matrix", fontsize=16)
     plt.savefig(graph_folder / "correlation.svg")
-    plt.savefig(graph_folder_for_quarto / "correlation.svg")
 
 
-def visualize_train_test_split(graph_folder: Path, graph_folder_for_quarto: Path, train: NDArrayStr, test: NDArrayStr) -> None:
+def visualize_train_test_split(graph_folder: Path, train: NDArrayStr, test: NDArrayStr) -> None:
     """
     Visualise le nombre d'élément par classe et leur séparation statifié dans le jeu de donnée train et test.
     """
@@ -69,10 +67,9 @@ def visualize_train_test_split(graph_folder: Path, graph_folder_for_quarto: Path
     plt.legend()
     plt.title("Number of letters in each dataset")
     plt.savefig(graph_folder / "split.svg")
-    plt.savefig(graph_folder_for_quarto / "split.svg")
 
 
-def visualize_confusion_matrix(graph_folder: Path, graph_folder_for_quarto: Path, cm: NDArrayNum, labels: NDArrayStr, model_name: str) -> None:
+def visualize_confusion_matrix(graph_folder: Path, cm: NDArrayNum, labels: NDArrayStr, model_name: str) -> None:
     """
     Visualise les matrices de confusion via une heatmap.
     """
@@ -84,12 +81,10 @@ def visualize_confusion_matrix(graph_folder: Path, graph_folder_for_quarto: Path
     plt.subplots_adjust(bottom=0.20, left=0.20)
 
     plt.savefig(graph_folder / f"cm_{model_name}.svg")
-    plt.savefig(graph_folder_for_quarto / f"cm_{model_name}.svg")
 
 
 def visualize_grid_search(
     graph_folder: Path,
-    graph_folder_for_quarto: Path,
     search: NDArrayNum,
     x_name: NDArrayNum,
     x_name_label: str,
@@ -117,4 +112,3 @@ def visualize_grid_search(
     plt.subplots_adjust(bottom=0.20, left=0.20)
 
     plt.savefig(graph_folder / f"search_{model_name}.svg")
-    plt.savefig(graph_folder_for_quarto / f"search_{model_name}.svg")
