@@ -11,7 +11,6 @@ from common.types import NDArrayNum, NDArrayStr
 @define(auto_attribs=True, kw_only=True)
 class LoadingData:
     classes: NDArrayStr
-    target: str
     current_X: NDArrayNum
     current_y: NDArrayStr
     data_size: int = 0

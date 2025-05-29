@@ -30,6 +30,3 @@ test:
 # type annotations
 mypy:
 	$(MYPY) . --strict
-
-run:
-	$(BIN)\activate && $(PYTHON) main.py $(ARGS)

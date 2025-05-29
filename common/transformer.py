@@ -2,8 +2,6 @@
 from typing import Dict, List, Optional, Self, Tuple
 import numpy as np
 from sklearn.base import check_is_fitted
-from sklearn.decomposition import PCA
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.feature_selection import RFE
 
 from common.config import LETTER_TO_REMOVE
@@ -65,16 +63,6 @@ def get_sorted_idx(transformer: Transformer) -> NDArrayNum:
         scores = transformer.explained_variance_ratio_
     elif hasattr(transformer, "estimator_") & hasattr(transformer.estimator_, "coef_"):
         scores = np.mean(np.abs(transformer.estimator_.coef_), axis=0)
-    else:
-        raise ValueError("Cannot find any scores related to this transformer %s", transformer)
-    
-    return np.argsort(scores)[::-1]
-
-def get_components(transformer: Transformer) -> NDArrayNum:
-    if isinstance(transformer, PCA):
-        scores = transformer.components_
-    elif isinstance(transformer, LinearDiscriminantAnalysis):
-        scores = transformer.coef_
     else:
         raise ValueError("Cannot find any scores related to this transformer %s", transformer)
     

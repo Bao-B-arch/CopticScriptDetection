@@ -9,7 +9,6 @@ from typing import Any, Dict, List, Optional, Self, Union
 from attr import define, field
 from matplotlib import pyplot as plt
 import numpy as np
-import pandas as pd
 from sklearn import clone
 from sklearn.base import BaseEstimator
 from sklearn.decomposition import PCA
@@ -47,13 +46,11 @@ class LoadingProcess:
         cols: NDArrayStr,
         letters: NDArrayStr,
         data: NDArrayFloat,
-        target_name: str,
         data_size: int
     ) -> LoadingData:
 
         return LoadingData(
             classes=cols,
-            target=target_name,
             current_X=data,
             current_y=letters,
             data_size=data_size
@@ -61,35 +58,39 @@ class LoadingProcess:
 
 
     @classmethod
-    def __load_data_from_files(cls, /, *, nb_shape: int, target_name: str) -> LoadingData:
+    def __load_data_from_files(cls, /, *, nb_shape: int) -> LoadingData:
         raw_data, data_size = load_database(DATABASE_PATH)
 
-        cols, letters, data = patches_features(raw_data, data_size, nb_shape, target_name)
-        mask_na = np.any(np.isnan(data), axis=0)
+        cols, letters, data = patches_features(raw_data, data_size, nb_shape)
+        mask_na = np.any(~np.isnan(data), axis=1)
     
         return LoadingProcess.__to_data(
             cols=cols,
             letters=letters[mask_na],
             data=data[mask_na],
-            target_name=target_name,
             data_size=data_size
         )
 
 
     @classmethod
-    def __load_data_from_save(cls, /, *, target_name: str) -> LoadingData:
-        data, data_size = load_database_from_save(SAVED_DATABASE_PATH)
+    def __load_data_from_save(cls, /) -> LoadingData:
+        cols, letters, data, data_size = load_database_from_save(SAVED_DATABASE_PATH)
         
-        return LoadingProcess.__to_data(data=data, target_name=target_name, data_size=data_size)
+        return LoadingProcess.__to_data(
+            cols=cols,
+            letters=letters,
+            data=data,
+            data_size=data_size
+        )
 
 
     @classmethod
-    def load_data(cls, /, *, target_name: str, from_save: bool = False, nb_shape: int = NB_SHAPE) -> LoadingData:
+    def load_data(cls, /, *, from_save: bool = False, nb_shape: int = NB_SHAPE) -> LoadingData:
         """Charge les données initiales dans la pipeline"""
         if from_save:
-            loading_data = LoadingProcess.__load_data_from_save(target_name=target_name)
+            loading_data = LoadingProcess.__load_data_from_save()
         else:
-            loading_data = LoadingProcess.__load_data_from_files(nb_shape=nb_shape, target_name=target_name)
+            loading_data = LoadingProcess.__load_data_from_files(nb_shape=nb_shape)
 
         return loading_data
 
@@ -120,7 +121,6 @@ class LoadingProcess:
 
         return LoadingData(
             data_size=data.data_size,
-            target=data.target,
             classes=data.classes,
             current_X=new_X,
             current_y=new_y,
@@ -303,10 +303,9 @@ class TrackedPipeline:
 
 
     @timer_pipeline("LOADING DATABASE")
-    def load_data(self, /, *, target_name: str, name: str = "initial_data", from_save: bool = False) -> Self:
+    def load_data(self, /, *, name: str = "initial_data", from_save: bool = False) -> Self:
     
         self.loading_data = LoadingProcess.load_data(
-            target_name=target_name,
             from_save=from_save,
             nb_shape=self.nb_shapes
         )
@@ -383,13 +382,14 @@ class TrackedPipeline:
         n_features = X.shape[1]
         n_splits = cv.get_n_splits()
         is_selection = not isinstance(transformer, (PCA, LinearDiscriminantAnalysis))
-        n_component = len(np.unique(y)) if isinstance(transformer, LinearDiscriminantAnalysis) else n_features
+        n_classes = len(np.unique(y))
+        n_component = min(n_classes - 1, n_features) if isinstance(transformer, LinearDiscriminantAnalysis) else n_features
     
         mcc_sum_progression: NDArrayNum = np.zeros(n_features)
         mcc_sumsq_progression: NDArrayNum = np.zeros(n_features)
-        all_selected: NDArrayNum = np.zeros((n_splits, n_features))
+        all_selected: NDArrayNum = np.zeros((n_splits, n_component))
         all_components: NDArrayNum = np.zeros((n_splits, n_component, n_features))
-        all_convergence: NDArrayBool = np.zeros(n_splits)
+        all_convergence: NDArrayBool = np.zeros(n_splits, dtype=np.bool)
 
         for nfold, (train_idx, test_idx) in enumerate(cv.split(X, y)):
             X_train = X[train_idx]
@@ -402,7 +402,7 @@ class TrackedPipeline:
             if is_selection:
                 sorted_idx = get_sorted_idx(transformer_clone)
             else:
-                sorted_idx = np.array(range(n_features))
+                sorted_idx = np.arange(n_component)
                 all_components[nfold] = get_components(transformer_clone)
             all_selected[nfold] = sorted_idx
 
@@ -410,7 +410,6 @@ class TrackedPipeline:
             X_test_trans = transformer_clone.transform(X_test)
 
             for k in range(1, n_features + 1):
-
                 model_clone = clone(model)
                 X_train_k = X_train_trans[:, sorted_idx[:k]]
                 X_test_k = X_test_trans[:, sorted_idx[:k]]
@@ -724,11 +723,13 @@ class TrackedPipeline:
         if export:
             datastate = self.get_state(name="initial")
             loading_data = unwrap(self.loading_data)
-            database = pd.concat([
-                pd.DataFrame(datastate.X, columns=loading_data.classes),
-                pd.DataFrame(datastate.y, columns=[loading_data.target])
-            ])
-            database.to_feather(path)
+            np.savez(
+                path,
+                cols=loading_data.classes,
+                letters=datastate.y,
+                data=datastate.X,
+                allow_pickle=False
+            )
         return self
 
     

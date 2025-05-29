@@ -18,7 +18,6 @@ def run_selection(**config: Any) -> None:
 
     TrackedPipeline.from_config(name="OCR_coptic", **config)\
         .load_data(
-            target_name="Letter",
             name="initial_data",
             from_save=(not FORCE_COMPUTATION) & os.path.isfile(SAVED_DATABASE_PATH)
     )\

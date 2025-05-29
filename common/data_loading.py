@@ -3,10 +3,9 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 import cv2
 import numpy as np
-import pandas as pd
 
 from common.config import IMAGE_SIZE
-from common.types import NDArrayUInt
+from common.types import NDArrayFloat, NDArrayStr, NDArrayUInt
 
 class DimensionException(Exception):
     pass
@@ -50,7 +49,7 @@ def load_database(path: Path) -> Tuple[Dict[str, NDArrayUInt], int]:
     return db, db_size
 
 
-def load_database_from_save(path: Path) -> Tuple[pd.DataFrame, int]:
-    data = pd.read_feather(path)
-    data_size = data.index.size
-    return data, data_size
+def load_database_from_save(path: Path) -> Tuple[NDArrayStr, NDArrayStr, NDArrayFloat, int]:
+    data = np.load(path)
+    data_size = data["letters"].shape[0]
+    return data["cols"], data["letters"], data["data"], data_size

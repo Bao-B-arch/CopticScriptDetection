@@ -27,7 +27,7 @@ DATABASE_PATH = Path(load_env("DATABASE_PATH", "Images_Traitees"))
 EXPORT_PATH = Path(load_env("EXPORT_PATH", "export"))
 REPORT_PATH = Path(load_env("REPORT_PATH", "report"))
 GRAPH_PATH = Path(load_env("GRAPH_PATH", "graph"))
-SAVED_DATABASE_PATH = Path(load_env("SAVED_DATABASE_PATH", "database.feather"))
+SAVED_DATABASE_PATH = Path(load_env("SAVED_DATABASE_PATH", "database.npz"))
 
 RANDOM_STATE = int(load_env("RANDOM_STATE", "0"))
 TEST_TRAIN_RATIO = float(load_env("TEST_TRAIN_RATIO", "0.2"))

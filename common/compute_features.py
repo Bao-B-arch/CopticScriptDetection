@@ -45,12 +45,11 @@ def patches_features(
         database: Dict[str, NDArrayUInt],
         data_size: int,
         shape: int,
-        target_name: str,
         image_size_sqrt: int=IMAGE_SIZE
     ) -> Tuple[NDArrayStr, NDArrayStr, NDArrayFloat]:
 
     shape_sqrt = int(np.sqrt(shape))
-    columns: NDArrayStr = np.array([f"mean_{i}" for i in range(shape)] + [f"var_{i}" for i in range(shape)] + [target_name])
+    columns: NDArrayStr = np.array([f"mean_{i}" for i in range(shape)] + [f"var_{i}" for i in range(shape)])
 
     slices_broadcast: NDArrayInt = patches_slices_broadcast(shape_sqrt, image_size_sqrt)
     data_array: NDArrayFloat = np.zeros((data_size, 2*shape), dtype=np.float64)
