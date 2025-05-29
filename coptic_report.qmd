@@ -149,7 +149,7 @@ En utilisant un shuffle split stratifié, on obtient les paramètres optimaux su
 
 | C | Gamma |
 |---|---|
-|`{python} f"{data['grid_search_svm']['metadata']['best_params']['C']:.2f}"` | `{python} f"{data['grid_search_svm']['metadata']['best_params']['gamma']:.2f}"` |
+|`{python} f"{data['model_search_svm']['metadata']['model_params']['C']:.2f}"` | `{python} f"{data['model_search_svm']['metadata']['model_params']['gamma']:.2f}"` |
 
 ## Résultats de l'entrainement
 
@@ -158,7 +158,7 @@ En utilisant un shuffle split stratifié, on obtient les paramètres optimaux su
 | Modèle | Accuracy | Matthews Correlation Coefficient |
 |---|---|---|
 |Random Forest | `{python} f"{data['eval_rfc']['metadata']['accuracy_score']:.2f}"` | `{python} f"{data['eval_rfc']['metadata']['matthews_corrcoef']:.2f}"` |
-|SVM | `{python} f"{data['eval_svm']['metadata']['accuracy_score']:.2f}"` | `{python} f"{data['eval_svm']['metadata']['matthews_corrcoef']:.2f}"` |
+|SVM | `{python} f"{data['eval_search_svm']['metadata']['accuracy_score']:.2f}"` | `{python} f"{data['eval_search_svm']['metadata']['matthews_corrcoef']:.2f}"` |
 
 ### Matrices de confusion
 

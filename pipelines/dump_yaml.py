@@ -3,7 +3,8 @@ import os
 from pathlib import Path
 from typing import Any, Dict, Tuple, Union
 import numpy as np
-from sklearn.base import BaseEstimator
+from sklearn.base import TransformerMixin
+from sklearn.feature_selection import SelectorMixin
 import yaml
 
 from common.config import EXPORT_PATH
@@ -25,7 +26,7 @@ def setup_yaml_representers() -> None:
         return dumper.represent_str(str(dtype))
     
     # Handle scikit-learn estimators and other complex objects
-    def sklearn_representer(dumper: yaml.Dumper, obj: BaseEstimator) -> Union[yaml.MappingNode, yaml.ScalarNode]:
+    def sklearn_representer(dumper: yaml.Dumper, obj: Union[TransformerMixin, SelectorMixin]) -> Union[yaml.MappingNode, yaml.ScalarNode]:
         # For scikit-learn objects, represent key parameters
         if hasattr(obj, "get_params"):
             params = obj.get_params()
@@ -46,7 +47,7 @@ def setup_yaml_representers() -> None:
             })
         else:
             # Fallback: represent as string
-            return dumper.represent_str(str(obj))
+            return dumper.represent_str(f"{obj.__class__.__module__}.{obj.__class__.__name__}")
         
     def letter_remover_representer(dumper: yaml.Dumper, obj: LetterRemover) -> yaml.MappingNode:
         return dumper.represent_dict({
@@ -91,7 +92,8 @@ def setup_yaml_representers() -> None:
     yaml.add_representer(tuple, tuple_representer)
     
     # Register for scikit-learn estimators
-    yaml.add_representer(BaseEstimator, sklearn_representer)
+    yaml.add_representer(TransformerMixin, sklearn_representer)
+    yaml.add_representer(SelectorMixin, sklearn_representer)
     yaml.add_representer(LetterRemover, letter_remover_representer)
     yaml.add_representer(DoNothingSelector, do_nothing_representer)
     yaml.add_representer(np.ma.MaskedArray, numpy_ma_representer)

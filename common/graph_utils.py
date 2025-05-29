@@ -46,7 +46,12 @@ def visualize_scaling(graph_folder: Path, graph_folder_for_quarto: Path, data_be
 def visualize_correlation(graph_folder: Path, graph_folder_for_quarto: Path, data: NDArrayNum, labels: NDArrayStr) -> None:
 
     plt.figure(figsize=(15, 8))
-    sns.heatmap(np.corrcoef(data, rowvar=False), xticklabels=labels.tolist(), yticklabels=labels.tolist())
+    sns.heatmap(
+        np.corrcoef(data, rowvar=False), 
+        xticklabels=labels.tolist(), 
+        yticklabels=labels.tolist(),
+        annot=True, fmt=".2f",
+    )
     plt.title("Correlation Matrix", fontsize=16)
     plt.savefig(graph_folder / "correlation.svg")
     plt.savefig(graph_folder_for_quarto / "correlation.svg")
