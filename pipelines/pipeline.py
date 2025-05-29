@@ -600,19 +600,3 @@ class TrackedPipeline:
         unique, idx = np.unique(state.y, return_index=True)
         export_visual_features(export_path, state.X[idx, :self.nb_shapes], unique, self.nb_shapes, FACTOR_SIZE_EXPORT)
         return self
-
-
-    @timer_pipeline("BUILD REPORT")
-    def build_quarto(self, /) -> Self:
-        if FORCE_REPORT:
-            try:
-                subprocess.run(["quarto", "render", "coptic_report.qmd", 
-                                "--to", "pdf,revealjs,docx",
-                                "--output", f"OCR_{self.nb_shapes}_{self.selection}",
-                                "--output-dir", "report\\quarto",
-                                "-P", f"name:{self.nb_shapes}_{self.selection}"], 
-                                stdout = subprocess.DEVNULL,
-                                stderr = subprocess.DEVNULL)
-            except subprocess.CalledProcessError as e:
-                print(f"Échec de génération du rapport Quarto: {e}")
-        return self
