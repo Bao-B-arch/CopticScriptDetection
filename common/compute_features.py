@@ -65,9 +65,9 @@ def from_slices_to_masks(slices: NDArrayInt, image_size_sqrt: int) -> NDArrayBoo
     return patch_masks
 
 
-# pour chaque patch, on calcule la moyenne et la variance du niveau de gris
-# ainsi on obtient 2*nb_patch features
-# en général on a 16 patches, ce qui donne donc 32 features
+# pour chaque patch, on calcule la moyenne et la variance du niveau de gris et les 3 harmoniques non-principales du patch
+# ainsi on obtient 5*nb_patch features
+# en général on a 16 patches, ce qui donne donc 80 features
 def patches_features(
         database: Dict[str, NDArrayUInt],
         data_size: int,
@@ -76,7 +76,12 @@ def patches_features(
     ) -> Tuple[NDArrayStr, NDArrayStr, NDArrayFloat]:
 
     shape_sqrt = int(np.sqrt(shape))
-    columns: NDArrayStr = np.array([f"mean_{i}" for i in range(shape)] + [f"var_{i}" for i in range(shape)])
+    columns: NDArrayStr = np.array(
+        [f"mean_{i}" for i in range(shape)] + 
+        [f"var_{i}" for i in range(shape)] +
+        [f"fft_horizontal{i}" for i in range(shape)] +
+        [f"fft_vertical{i}" for i in range(shape)] +
+        [f"fft_diag{i}" for i in range(shape)])
 
     letter_array: NDArrayStr = np.empty(data_size, dtype="<U10")
     idx: int = 0
@@ -108,7 +113,21 @@ def patches_features(
         masked_patches = [imgs[:, rs:re, cs:ce] for rs, re, cs, ce in slices_broadcast]
         data_array[idx:idx+n_imgs, :shape] = np.array([np.mean(patches, axis=(1,2)) for patches in masked_patches]).T
         data_array[idx:idx+n_imgs, shape:2*shape] = np.array([np.var(patches, axis=(1,2)) for patches in masked_patches]).T
-        data_array[idx:idx+n_imgs, 2*shape:] = np.array([np.abs(np.fft.fft2(patches, axis=(1,2))).reshape(n_imgs, -1)[:, 1:4] for patches in masked_patches]).T
+
+        fft_magnitude = [
+            # pour chaque patch, on calcule la fft réelle et on récupère les coefficient 1, 2 et 3 (0 étant la moyenne et elle est déjà calculée)
+            # l'intérêt et de récupérer les gradients horizontaux, verticaux et diagonaux
+            np.abs(np.fft.fft2(patches)).reshape(n_imgs, -1) for patches in masked_patches
+        ]
+        fft_normalized = [
+            fft / np.linalg.norm(fft, axis=-1, keepdims=True) for fft in fft_magnitude
+        ]
+
+        fft_filter = np.array([
+            fft[:, 1:4] for fft in fft_normalized
+        ]).transpose(1, 0, 2).reshape(n_imgs, -1)
+
+        data_array[idx:idx+n_imgs, 2*shape:] = fft_filter
         
         letter_array[idx:idx+n_imgs] = folder
         idx += n_imgs

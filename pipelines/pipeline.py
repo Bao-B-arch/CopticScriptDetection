@@ -598,7 +598,7 @@ class TrackedPipeline:
             export_path = EXPORT_PATH / f"{self.nb_shapes}patches"
         state = self.get_state(name="initial")
         unique, idx = np.unique(state.y, return_index=True)
-        export_visual_features(export_path, state.X[idx], unique, self.nb_shapes, FACTOR_SIZE_EXPORT)
+        export_visual_features(export_path, state.X[idx, :self.nb_shapes], unique, self.nb_shapes, FACTOR_SIZE_EXPORT)
         return self
 
 

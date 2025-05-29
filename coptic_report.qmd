@@ -32,7 +32,7 @@ jupyter: python3
 :::
 ```{python}
 #| tags: [parameters]
-name = "16_None"
+name = "16_l1"
 
 print(name)
 ```
