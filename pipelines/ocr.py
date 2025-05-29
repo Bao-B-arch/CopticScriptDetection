@@ -6,12 +6,14 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
-from common.config import FORCE_COMPUTATION, FORCE_PLOT, RANDOM_STATE, SAVED_DATABASE_PATH
+from config import FORCE_COMPUTATION, FORCE_PLOT, RANDOM_STATE, SAVED_DATABASE_PATH
 from common.transformer import LetterRemover
 from pipelines.config import parse_config_run
 from pipelines.pipeline import TrackedPipeline
 
 
+# Pipeline classique
+# Entrainer un modèle SVM et RFC
 def run_ocr(**config: Any) -> None:
 
     # Retirer les lettres du .env

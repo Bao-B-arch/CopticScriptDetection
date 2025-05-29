@@ -7,7 +7,7 @@ from sklearn.model_selection import GridSearchCV
 
 from common.types import NDArrayNum, NDArrayStr
 
-
+# classes permettant de garder en mémoire les données chargées à transformer
 @define(auto_attribs=True, kw_only=True)
 class LoadingData:
     classes: NDArrayStr
@@ -17,6 +17,7 @@ class LoadingData:
     transformers: Dict[str, BaseEstimator] = {}
 
 
+# classes permettant de garder en mémoire les données splittées pour entrainer des modèles
 @define(auto_attribs=True, kw_only=True)
 class SplitData:
     X_train: NDArrayNum

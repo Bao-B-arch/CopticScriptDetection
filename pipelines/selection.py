@@ -4,12 +4,13 @@ from typing import Any
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
-from common.config import FORCE_COMPUTATION, RANDOM_STATE, SAVED_DATABASE_PATH
+from config import FORCE_COMPUTATION, RANDOM_STATE, SAVED_DATABASE_PATH
 from common.transformer import LetterRemover
 from pipelines.config import parse_config_selection
 from pipelines.pipeline import TrackedPipeline
 
 
+# Pipeline spécifique permettant de vérifier quelle technique de sélection de features est la plus pertinente.
 def run_selection(**config: Any) -> None:
 
     # Retirer les lettres du .env

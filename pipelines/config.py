@@ -1,14 +1,13 @@
 
-from typing import Any, Dict
+from typing import Any, Dict, Union
 from sklearn.base import BaseEstimator
 from sklearn.calibration import LinearSVC
 from sklearn.feature_selection import RFE, SelectFromModel, SelectKBest, f_classif, mutual_info_classif
 
-from common.config import RANDOM_STATE
+from config import RANDOM_STATE
 from common.transformer import DoNothingSelector
-from common.types import Transformer
 
-SELECTORS: Dict[str, Transformer] = {
+SELECTORS: Dict[str, Union[SelectKBest, SelectFromModel, RFE]] = {
     "anova": SelectKBest(score_func=f_classif, k="all"),
     "mi": SelectKBest(score_func=mutual_info_classif, k="all"),
     "l1": SelectFromModel(LinearSVC(penalty="l1", dual=False, random_state=RANDOM_STATE, C=.1, max_iter=5000)),

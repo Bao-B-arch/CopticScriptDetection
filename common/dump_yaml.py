@@ -3,11 +3,13 @@ import os
 from pathlib import Path
 from typing import Any, Dict, Tuple, Union
 import numpy as np
-from sklearn.base import TransformerMixin
-from sklearn.feature_selection import SelectorMixin
+from sklearn.base import BaseEstimator
+from sklearn.calibration import LinearSVC
+from sklearn.discriminant_analysis import StandardScaler
+from sklearn.feature_selection import SelectFromModel
 import yaml
 
-from common.config import EXPORT_PATH
+from config import EXPORT_PATH
 from common.transformer import DoNothingSelector, LetterRemover
 
 def setup_yaml_representers() -> None:
@@ -26,8 +28,11 @@ def setup_yaml_representers() -> None:
         return dumper.represent_str(str(dtype))
     
     # Handle scikit-learn estimators and other complex objects
-    def sklearn_representer(dumper: yaml.Dumper, obj: Union[TransformerMixin, SelectorMixin]) -> Union[yaml.MappingNode, yaml.ScalarNode]:
+    def sklearn_representer(dumper: yaml.Dumper, obj: BaseEstimator) -> Union[yaml.MappingNode, yaml.ScalarNode]:
         # For scikit-learn objects, represent key parameters
+        if not hasattr(obj, '__module__') or not obj.__module__ or 'sklearn' not in obj.__module__:
+            raise ValueError("Cant Identify the current object {obj}")
+
         if hasattr(obj, "get_params"):
             params = obj.get_params()
             # Filter out complex nested objects for readability
@@ -92,8 +97,9 @@ def setup_yaml_representers() -> None:
     yaml.add_representer(tuple, tuple_representer)
     
     # Register for scikit-learn estimators
-    yaml.add_representer(TransformerMixin, sklearn_representer)
-    yaml.add_representer(SelectorMixin, sklearn_representer)
+    yaml.add_representer(SelectFromModel, sklearn_representer)
+    yaml.add_representer(StandardScaler, sklearn_representer)
+    yaml.add_representer(LinearSVC, sklearn_representer)
     yaml.add_representer(LetterRemover, letter_remover_representer)
     yaml.add_representer(DoNothingSelector, do_nothing_representer)
     yaml.add_representer(np.ma.MaskedArray, numpy_ma_representer)

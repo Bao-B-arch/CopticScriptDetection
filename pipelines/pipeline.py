@@ -11,271 +11,34 @@ from matplotlib import pyplot as plt
 import numpy as np
 from sklearn import clone
 from sklearn.base import BaseEstimator
-from sklearn.metrics import confusion_matrix, matthews_corrcoef, accuracy_score
-from sklearn.model_selection import GridSearchCV, StratifiedKFold, StratifiedShuffleSplit, train_test_split
+from sklearn.metrics import matthews_corrcoef
+from sklearn.model_selection import GridSearchCV, StratifiedKFold
 
-from common.compute_features import export_visual_features, patches_features
-from common.config import DATABASE_PATH, EXPORT_PATH, FACTOR_SIZE_EXPORT, FORCE_PLOT, FORCE_REPORT, GRAPH_PATH, NB_SHAPE, \
-    RANDOM_STATE, REPORT_PATH, SAVED_DATABASE_PATH, TEST_TRAIN_RATIO
-from common.data_loading import load_database, load_database_from_save
+from common.compute_features import export_visual_features
+from config import EXPORT_PATH, FACTOR_SIZE_EXPORT, FORCE_PLOT, FORCE_REPORT, GRAPH_PATH, \
+    RANDOM_STATE, REPORT_PATH, TEST_TRAIN_RATIO
 from common.datastate import DataState
 from common.graph_utils import visualize_confusion_matrix, visualize_correlation, visualize_grid_search, visualize_scaling, visualize_train_test_split
 from common.transformer import get_sorted_idx
-from common.types import NDArrayBool, NDArrayFloat, NDArrayNum, NDArrayStr, NDArrayUInt, Transformer
+from common.types import NDArrayBool, NDArrayNum, NDArrayStr, NDArrayUInt
 from common.utils import jaccard_index, outlier_analysis, unwrap
-from pipelines import dump_yaml
-from pipelines.data_stages import LoadingData, SplitData
+from common import dump_yaml
+from common.data_stages import LoadingData, SplitData
+from pipelines._loading_process import LoadingProcess
+from pipelines._split_process import SplitProcess
 from pipelines.decorator import timer_pipeline
 
 
 class PipelineException(Exception):
     pass
 
+
 class MissingConfigValue(ValueError):
     pass
 
 
-class LoadingProcess:
-    
-
-    @classmethod
-    def __to_data(
-        cls, /, *,
-        cols: NDArrayStr,
-        letters: NDArrayStr,
-        data: NDArrayFloat,
-        data_size: int
-    ) -> LoadingData:
-
-        return LoadingData(
-            classes=cols,
-            current_X=data,
-            current_y=letters,
-            data_size=data_size
-        )
-
-
-    @classmethod
-    def __load_data_from_files(cls, /, *, nb_shape: int) -> LoadingData:
-        raw_data, data_size = load_database(DATABASE_PATH)
-
-        cols, letters, data = patches_features(raw_data, data_size, nb_shape)
-        mask_na = np.any(~np.isnan(data), axis=1)
-    
-        return LoadingProcess.__to_data(
-            cols=cols,
-            letters=letters[mask_na],
-            data=data[mask_na],
-            data_size=data_size
-        )
-
-
-    @classmethod
-    def __load_data_from_save(cls, /) -> LoadingData:
-        cols, letters, data, data_size = load_database_from_save(SAVED_DATABASE_PATH)
-        
-        return LoadingProcess.__to_data(
-            cols=cols,
-            letters=letters,
-            data=data,
-            data_size=data_size
-        )
-
-
-    @classmethod
-    def load_data(cls, /, *, from_save: bool = False, nb_shape: int = NB_SHAPE) -> LoadingData:
-        """Charge les données initiales dans la pipeline"""
-        if from_save:
-            loading_data = LoadingProcess.__load_data_from_save()
-        else:
-            loading_data = LoadingProcess.__load_data_from_files(nb_shape=nb_shape)
-
-        return loading_data
-
-    @classmethod
-    def transform(
-        cls, /, *,
-        data: LoadingData,
-        transformer: Transformer,
-        name: str,
-        fit: bool = True,
-        transform_y: bool = False,
-        apply_y: bool = False
-    ) -> LoadingData:
-        """Applique une transformation aux données avec traçabilité"""
-
-        # Appliquer la transformation
-        if fit:
-            if transform_y:
-                transformer.fit(data.current_X, data.current_y)
-            else:
-                transformer.fit(data.current_X)
-
-        if apply_y:
-            new_X, new_y = transformer.transform(data.current_X, data.current_y)
-        else:
-            new_X = transformer.transform(data.current_X)
-            new_y = data.current_y
-
-        return LoadingData(
-            data_size=data.data_size,
-            classes=data.classes,
-            current_X=new_X,
-            current_y=new_y,
-            transformers={**data.transformers, name: transformer}
-        )
-    
-
-    @classmethod
-    def split(
-        cls, /, *,
-        data: LoadingData,
-        test_size: float = TEST_TRAIN_RATIO,
-        random_state: int = RANDOM_STATE,
-        stratify: bool = True
-    ) -> SplitData:
-        """Divise les données en ensembles d'entraînement et de test"""
-
-        # Effectuer la séparation
-        stratify_param = data.current_y if stratify else None
-        X_train, X_test, y_train, y_test = train_test_split(
-            data.current_X, data.current_y, 
-            test_size=test_size, 
-            random_state=random_state, 
-            stratify=stratify_param
-        )
-
-        return SplitData(
-            X_train=X_train,
-            y_train=y_train,
-            X_test=X_test,
-            y_test=y_test
-        )
-
-
-@define(auto_attribs=True)
-class SplitProcess:
-    """Pipeline qui garde une trace de toutes les transformations"""
-    state: SplitData
-
-    def __init__(self, /, *, state: SplitData):
-        self.state = state
-
-
-    @classmethod
-    def train_model(
-        cls, /, *,
-        data: SplitData,
-        model: BaseEstimator,
-        name: str,
-    ) -> SplitData:
-        """Entraîne un modèle"""
-        
-        # Entraîner le modèle
-        model.fit(data.X_train, data.y_train)
-
-        return SplitData(
-            X_train=data.X_train,
-            y_train=data.y_train,
-            X_test=data.X_test,
-            y_test=data.y_test,
-            models={**data.models, name:(None, model)}
-        )
-    
-
-    @classmethod
-    def _validate_param_grid(cls, /, *, param_grid: Dict[str, List[Any]]) -> None:
-        for key, values in param_grid.items():
-            if not isinstance(values, list) or len(values) == 0:
-                raise ValueError(f"Paramètre invalide pour {key}: {values}")
-        
-
-    @classmethod
-    def train_model_searched(
-        cls, /, *,
-        data: SplitData,
-        model: BaseEstimator,
-        name: str,
-        param_grid: Dict[str, List[Any]],
-        cv: int = 5,
-        scoring: str = "matthews_corrcoef"
-    ) -> SplitData:
-        """Effectue une recherche d'hyperparamètres et entraîne un modèle"""
-        
-        cls._validate_param_grid(param_grid=param_grid)
-        # Configurer la validation croisée
-        stratified_cv = StratifiedShuffleSplit(
-            n_splits=cv,
-            test_size=TEST_TRAIN_RATIO,
-            random_state=RANDOM_STATE
-        )
-
-        # Effectuer la recherche par grille
-        search = GridSearchCV(
-            model,
-            param_grid,
-            scoring=scoring,
-            cv=stratified_cv,
-            n_jobs=-1,
-            return_train_score=True
-        )
-        search_fit = search.fit(data.X_train, data.y_train)
-
-        searched_model = model.set_params(**search_fit.best_params_)
-        searched_model.fit(data.X_train, data.y_train)
-
-        return SplitData(
-            X_train=data.X_train,
-            y_train=data.y_train,
-            X_test=data.X_test,
-            y_test=data.y_test,
-            models={**data.models, name:(search_fit, searched_model)}
-        )
-
-
-    @classmethod
-    def evaluate(
-        cls, /, *,
-        data: SplitData,
-        model: BaseEstimator
-    ) -> Dict[str, np.typing.ArrayLike]:
-
-        y_pred = model.predict(data.X_test)
-        # Calculer les métriques
-        mcc = matthews_corrcoef(data.y_test, y_pred)
-        acc = accuracy_score(data.y_test, y_pred)
-        cm = confusion_matrix(data.y_test, y_pred, normalize="true")
-
-        return {
-            "mcc": mcc,
-            "acc": acc,
-            "cm": cm,
-        }
-    
-
-    @classmethod
-    def example(
-        cls, /, *,
-        data: SplitData,
-        n: int = 10,
-        random_state: int = RANDOM_STATE,
-    ) -> Dict[str, NDArrayStr]:
-
-        # Prédiction sur un échantillon de 5 données aléatoires
-        mask = np.random.default_rng(random_state).choice(data.X_test.shape[0], replace=False, size=n) 
-        sample_x = data.X_test[mask]
-        sample_y = data.y_test[mask]
-
-        pred_dict: Dict[str, NDArrayStr] = {}
-        pred_dict["REAL"] = sample_y
-
-        for model_name, (_, model) in data.models.items():
-            pred = model.predict(sample_x)
-            pred_dict[model_name] = pred
-
-        return pred_dict
-
-
+# classe gérant les différentes étapes de la construction d'un modèle de ML
+# Chaque étape enregistre des informations qui seront exportées pour analyser la comportement du modèle
 @define(kw_only=True)
 class TrackedPipeline:
     name: str
@@ -835,7 +598,7 @@ class TrackedPipeline:
     @timer_pipeline("EXPORT VISUAL FEATURES")
     def export_visual_features(self, /, *, export_path: Optional[Path] = None) -> Self:
         if export_path is None:
-            export_path = EXPORT_PATH / self.name
+            export_path = EXPORT_PATH / f"{self.nb_shapes}patches"
         state = self.get_state(name="initial")
         unique, idx = np.unique(state.y, return_index=True)
         export_visual_features(export_path, state.X[idx], unique, self.nb_shapes, FACTOR_SIZE_EXPORT)

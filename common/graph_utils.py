@@ -21,12 +21,7 @@ class MidpointNormalize(Normalize):
 
 def visualize_scaling(graph_folder: Path, graph_folder_for_quarto: Path, data_before: NDArrayNum, data_after: NDArrayNum) -> None:
     """
-    Visualise l"effet du standard scaling avec détection des outliers via MAD
-    
-    Paramètres:
-    
-    Retourne:
-    Graphiques de boxplots et statistiques des outliers
+    Visualise l"effet du standard scaling avec détection des outliers via MAD.
     """
     # Créer une figure avec des sous-graphiques
     fig, axes = plt.subplots(1, 2, figsize=(16, 6))
@@ -44,7 +39,9 @@ def visualize_scaling(graph_folder: Path, graph_folder_for_quarto: Path, data_be
 
 
 def visualize_correlation(graph_folder: Path, graph_folder_for_quarto: Path, data: NDArrayNum, labels: NDArrayStr) -> None:
-
+    """
+    Visualise les corrélations entre les features via une heatmap.
+    """
     plt.figure(figsize=(15, 8))
     sns.heatmap(
         np.corrcoef(data, rowvar=False), 
@@ -58,7 +55,9 @@ def visualize_correlation(graph_folder: Path, graph_folder_for_quarto: Path, dat
 
 
 def visualize_train_test_split(graph_folder: Path, graph_folder_for_quarto: Path, train: NDArrayStr, test: NDArrayStr) -> None:
-
+    """
+    Visualise le nombre d'élément par classe et leur séparation statifié dans le jeu de donnée train et test.
+    """
     unique_train, counts_train = np.unique(train, return_counts=True)
     unique_test, counts_test = np.unique(test, return_counts=True)
     count_sort_ind = np.argsort(-counts_train-counts_test)
@@ -74,7 +73,9 @@ def visualize_train_test_split(graph_folder: Path, graph_folder_for_quarto: Path
 
 
 def visualize_confusion_matrix(graph_folder: Path, graph_folder_for_quarto: Path, cm: NDArrayNum, labels: NDArrayStr, model_name: str) -> None:
-
+    """
+    Visualise les matrices de confusion via une heatmap.
+    """
     plt.figure()
     sns.heatmap(cm, xticklabels=labels.tolist(), yticklabels=labels.tolist())
     plt.xlabel("Predicted")
@@ -96,7 +97,10 @@ def visualize_grid_search(
     y_name_label: str,
     model_name: str
 ) -> None:
-
+    """
+    Visualise la recherche d'hyperparamètres d'un modèles via une heatmap.
+    N'a de sens que pour 2 hyperparamètres.
+    """
     plt.figure()
     sns.heatmap(
         search, 

@@ -19,18 +19,11 @@ def population_std(x: NDArrayNum) -> float:
 
 
 def jaccard_index(a: NDArrayNum, b: NDArrayNum) -> float:
+    # calcule le score de jaccard entre a et b. Permet de mesurer la similarité
     union = len(set(a) | set(b))
     inter = len(set(a) & set(b))
 
     return inter / float(union) if union != 0 else 0.0
-
-
-def subspace_similarity(components1: NDArrayNum, components2: NDArrayNum) -> float:
-    """Calcule la similarité entre 2 sous-espaces via les valeurs singulières"""
-    U1, _ = np.linalg.qr(components1.T)
-    U2, _ = np.linalg.qr(components2.T)
-    shape = min(components1.shape[0], components2.shape[0])
-    return float(np.linalg.norm(U1.T @ U2, ord="nuc")) / float(shape) if shape != 0 else 0.0
 
 
 def mad(data: NDArrayNum, axis: int) -> Tuple[NDArrayNum, NDArrayNum]:
@@ -49,7 +42,7 @@ def mad(data: NDArrayNum, axis: int) -> Tuple[NDArrayNum, NDArrayNum]:
 
 
 def outlier_analysis(data: NDArrayNum) -> Dict[str, NDArrayNum]:
-# Analyse statistique des outliers avec MAD
+    # Analyse statistique des outliers avec MAD
 
     median_val, mad_val = mad(data, axis=0)
     # Seuil standard : points à plus de 3 MAD de la médiane

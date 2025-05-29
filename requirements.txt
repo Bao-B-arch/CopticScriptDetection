@@ -12,6 +12,5 @@ mypy
 types-PyYAML
 pandas-stubs
 types-seaborn
-dotenv
 pytest
 argparse

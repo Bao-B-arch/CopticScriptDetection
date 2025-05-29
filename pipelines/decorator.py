@@ -4,7 +4,7 @@ import functools
 from timeit import default_timer as timer
 from typing import TYPE_CHECKING, Any, Callable, Concatenate, cast, TypeVar
 
-from common.config import NUMBER_SECTION_DEL
+from config import NUMBER_SECTION_DEL
 
 if TYPE_CHECKING:
     from pipelines.pipeline import TrackedPipeline
@@ -13,6 +13,7 @@ _TP = TypeVar("_TP", bound="TrackedPipeline")
 _TPMethod = Callable[Concatenate[_TP, ...], _TP, ]
 
 
+# décorateur permettant d'afficher le temps passé dans une étape de la pipeline
 def timer_pipeline(name: str) -> Callable[[_TPMethod[_TP]], _TPMethod[_TP]]:
     """Print the runtime of the decorated function"""
     def decorator_timer(func: _TPMethod[_TP]) -> _TPMethod[_TP]:

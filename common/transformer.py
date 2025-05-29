@@ -1,14 +1,16 @@
 
 from typing import Dict, List, Optional, Self, Tuple
 import numpy as np
-from sklearn.base import check_is_fitted
-from sklearn.feature_selection import RFE
+from sklearn.base import BaseEstimator, TransformerMixin, check_is_fitted
+from sklearn.feature_selection import RFE, SelectorMixin
 
-from common.config import LETTER_TO_REMOVE
-from common.types import NDArrayBool, NDArrayNum, Selector, Transformer
+from config import LETTER_TO_REMOVE
+from common.types import NDArrayBool, NDArrayNum
 
 
-class DoNothingSelector(Selector):
+# sélecteur personnalisé scikit learn qui ne fait rien
+# sert à comparer les différents sélecteur de features au fait de prendre toutes les features
+class DoNothingSelector(SelectorMixin, BaseEstimator):
     """Transformateur Nothing"""
 
     def fit(self, X: NDArrayNum, y: Optional[NDArrayNum]=None) -> Self:
@@ -21,7 +23,8 @@ class DoNothingSelector(Selector):
         return self.scores_
 
 
-class LetterRemover(Transformer):
+# transformer personnalisé qui masque certaines lettres
+class LetterRemover(TransformerMixin, BaseEstimator):
     """Transformateur pour supprimer des lettres spécifiques du jeu de données"""
     
     def __init__(self, letters_to_remove: Optional[List[str]]=None):
@@ -54,7 +57,7 @@ class LetterRemover(Transformer):
         return self.removed_counts
 
 
-def get_sorted_idx(transformer: Transformer) -> NDArrayNum:
+def get_sorted_idx(transformer: BaseEstimator) -> NDArrayNum:
     if isinstance(transformer, RFE):
         scores = (1 / transformer.ranking_)
     elif hasattr(transformer, "scores_"):

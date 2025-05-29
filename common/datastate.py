@@ -3,6 +3,7 @@ from attrs import define, field
 
 from common.types import NDArrayNum, NDArrayStr
 
+
 @define
 class DataState:
     """Classe pour stocker un état de données et ses métadonnées"""
