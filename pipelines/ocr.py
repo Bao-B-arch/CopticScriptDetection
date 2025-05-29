@@ -21,8 +21,8 @@ def run_ocr(**config: Any) -> None:
 
     # model svm
     param_grid = {
-        "C": np.logspace(-3, 5, 7).tolist(),
-        "gamma": np.logspace(-7, 1, 7).tolist()
+        "C": (10.0 ** np.arange(-3, 5)).tolist(),
+        "gamma": (10.0 ** np.arange(-7, 1)).tolist()
     }
 
     TrackedPipeline.from_config(name="OCR_coptic", **config)\
@@ -45,9 +45,7 @@ def run_ocr(**config: Any) -> None:
             transformer=selector,
             name="selection_features",
             transform_y=True,
-            SELECTED_FEATURES=lambda : 
-                selector.get_support(indices=True).tolist() if hasattr(selector, "get_support")
-                else selector.coef_.tolist()
+            SELECTED_FEATURES=lambda: selector.get_support(indices=True).tolist()
     )\
         .split()\
         .train_model_searched(

@@ -4,18 +4,15 @@ from itertools import combinations
 import os
 from pathlib import Path
 import subprocess
-from typing import Any, Dict, List, Optional, Self, Union
+from typing import Any, Dict, List, Optional, Self
 
 from attr import define, field
 from matplotlib import pyplot as plt
 import numpy as np
 from sklearn import clone
 from sklearn.base import BaseEstimator
-from sklearn.decomposition import PCA
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.metrics import confusion_matrix, matthews_corrcoef, accuracy_score
-from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold, StratifiedShuffleSplit, train_test_split
-import yaml
+from sklearn.model_selection import GridSearchCV, StratifiedKFold, StratifiedShuffleSplit, train_test_split
 
 from common.compute_features import export_visual_features, patches_features
 from common.config import DATABASE_PATH, EXPORT_PATH, FACTOR_SIZE_EXPORT, FORCE_PLOT, FORCE_REPORT, GRAPH_PATH, NB_SHAPE, \
@@ -23,9 +20,10 @@ from common.config import DATABASE_PATH, EXPORT_PATH, FACTOR_SIZE_EXPORT, FORCE_
 from common.data_loading import load_database, load_database_from_save
 from common.datastate import DataState
 from common.graph_utils import visualize_confusion_matrix, visualize_correlation, visualize_grid_search, visualize_scaling, visualize_train_test_split
-from common.transformer import get_components, get_sorted_idx
+from common.transformer import get_sorted_idx
 from common.types import NDArrayBool, NDArrayFloat, NDArrayNum, NDArrayStr, Transformer
-from common.utils import jaccard_index, outlier_analysis, subspace_similarity, unwrap
+from common.utils import jaccard_index, outlier_analysis, unwrap
+from pipelines import dump_yaml
 from pipelines.data_stages import LoadingData, SplitData
 from pipelines.decorator import timer_pipeline
 
@@ -213,7 +211,7 @@ class SplitProcess:
         )
 
         # Effectuer la recherche par grille
-        search = RandomizedSearchCV(
+        search = GridSearchCV(
             model,
             param_grid,
             scoring=scoring,
@@ -240,7 +238,7 @@ class SplitProcess:
         cls, /, *,
         data: SplitData,
         model: BaseEstimator
-    ) -> Dict[str, Union[float, List[float]]]:
+    ) -> Dict[str, np.typing.ArrayLike]:
 
         y_pred = model.predict(data.X_test)
         # Calculer les métriques
@@ -249,9 +247,9 @@ class SplitProcess:
         cm = confusion_matrix(data.y_test, y_pred, normalize="true")
 
         return {
-            "mcc": float(mcc),
-            "acc": float(acc),
-            "cm": cm.tolist(),
+            "mcc": mcc,
+            "acc": acc,
+            "cm": cm,
         }
     
 
@@ -261,26 +259,28 @@ class SplitProcess:
         data: SplitData,
         n: int = 10,
         random_state: int = RANDOM_STATE,
-    ) -> Dict[str, List[str]]:
+    ) -> Dict[str, NDArrayStr]:
 
         # Prédiction sur un échantillon de 5 données aléatoires
         mask = np.random.default_rng(random_state).choice(data.X_test.shape[0], replace=False, size=n) 
         sample_x = data.X_test[mask]
         sample_y = data.y_test[mask]
 
-        pred_dict: Dict[str, List[str]] = {}
-        pred_dict["REAL"] = sample_y.tolist()
+        pred_dict: Dict[str, NDArrayStr] = {}
+        pred_dict["REAL"] = sample_y
 
         for model_name, (_, model) in data.models.items():
             pred = model.predict(sample_x)
-            pred_dict[model_name] = pred.tolist()
+            pred_dict[model_name] = pred
 
         return pred_dict
+
 
 @define(kw_only=True)
 class TrackedPipeline:
     name: str
     nb_shapes: int
+    nb_features_selected: int = field(init=False)
     selection: str
     loading_data: Optional[LoadingData] = field(init=False, default=None)
     split_data: Optional[SplitData] = field(init=False, default=None)
@@ -314,8 +314,8 @@ class TrackedPipeline:
             "SIZE": self.loading_data.data_size,
             "TARGET": {k: v for (k, v) in zip(*np.unique(self.loading_data.current_y, return_counts=True))},
             "NB_PATCHES": self.nb_shapes,
-            "FEATURES": list(self.loading_data.classes),
-            "OUTLIERS_ANALYSIS": outlier_analysis(self.loading_data.current_X).to_dict(),
+            "FEATURES": self.loading_data.classes,
+            "OUTLIERS_ANALYSIS": outlier_analysis(self.loading_data.current_X),
         }
 
         self.add_state(
@@ -353,7 +353,7 @@ class TrackedPipeline:
         })
         metadata.update({
             "transformer_type": type(transformer).__name__,
-            "transformer_params": {k: str(v) for k,v in transformer.get_params().items()}
+            "transformer_params": transformer.get_params()
         })
 
         # Enregistrer le nouvel état
@@ -381,14 +381,10 @@ class TrackedPipeline:
 
         n_features = X.shape[1]
         n_splits = cv.get_n_splits()
-        is_selection = not isinstance(transformer, (PCA, LinearDiscriminantAnalysis))
-        n_classes = len(np.unique(y))
-        n_component = min(n_classes - 1, n_features) if isinstance(transformer, LinearDiscriminantAnalysis) else n_features
     
         mcc_sum_progression: NDArrayNum = np.zeros(n_features)
         mcc_sumsq_progression: NDArrayNum = np.zeros(n_features)
-        all_selected: NDArrayNum = np.zeros((n_splits, n_component))
-        all_components: NDArrayNum = np.zeros((n_splits, n_component, n_features))
+        all_selected: NDArrayNum = np.zeros((n_splits, n_features))
         all_convergence: NDArrayBool = np.zeros(n_splits, dtype=np.bool)
 
         for nfold, (train_idx, test_idx) in enumerate(cv.split(X, y)):
@@ -399,11 +395,7 @@ class TrackedPipeline:
             transformer_clone.fit(X_train, y[train_idx])
             ## computing scores for the whole fold
 
-            if is_selection:
-                sorted_idx = get_sorted_idx(transformer_clone)
-            else:
-                sorted_idx = np.arange(n_component)
-                all_components[nfold] = get_components(transformer_clone)
+            sorted_idx = get_sorted_idx(transformer_clone)
             all_selected[nfold] = sorted_idx
 
             X_train_trans = transformer_clone.transform(X_train)
@@ -425,25 +417,18 @@ class TrackedPipeline:
             else:
                 all_convergence[nfold] = True
 
-        if is_selection:
-            stability = [
-                float(np.mean([jaccard_index(c1, c2) for c1, c2 in combinations(all_selected[:, :k], 2)]))
-                for k in range(n_features)
-            ]
-        else:
-            stability = [
-                float(np.mean([subspace_similarity(c1, c2) for c1, c2 in combinations(all_components[:, :k, :], 2)]))
-                for k in range(n_features)
-            ]
+        stability = [
+            np.mean([jaccard_index(c1, c2) for c1, c2 in combinations(all_selected[:, :k], 2)])
+            for k in range(n_features)
+        ]
 
         result = {
             "name": name,
-            "transformer_params": {k: str(v) for k, v in transformer.get_params().items()},
+            "transformer_params": transformer.get_params(),
             "mcc_mean_progression": (mcc_sum_progression / n_splits).tolist(),
             "mcc_var_progression": (mcc_sumsq_progression / n_splits - (mcc_sum_progression / n_splits)**2).tolist(),
             "stability_scores_progression": stability,
-            "is_selector": is_selection,
-            "convergence": float(sum(all_convergence) / n_splits),
+            "convergence": sum(all_convergence) / n_splits,
         }
         return result
 
@@ -453,7 +438,7 @@ class TrackedPipeline:
         transformers: Dict[str, BaseEstimator],
         model: BaseEstimator,
         name: str,
-        cv: int,
+        n_fold: int,
         **metadata: Any
     ) -> Self:
         """
@@ -462,7 +447,7 @@ class TrackedPipeline:
         """
 
         result: Dict[str, Any] = {}
-        cv = StratifiedKFold(n_splits=cv)
+        cv = StratifiedKFold(n_splits=n_fold)
 
         for n, transformer in transformers.items():
             result[n] = self.test_transform(
@@ -478,9 +463,10 @@ class TrackedPipeline:
         metadata.update(result)
 
         # Enregistrer le nouvel état
+        loading_data = unwrap(self.loading_data)
         self.add_state(
-            X=self.loading_data.current_X,
-            y=self.loading_data.current_y,
+            X=loading_data.current_X,
+            y=loading_data.current_y,
             name=f"after_{name}",
             metadata=metadata
         )
@@ -554,7 +540,7 @@ class TrackedPipeline:
         metadata.update({
             "model_type": type(model).__name__,
             "model_params": model.get_params(),
-            "training_data_shape": list(self.split_data.X_train.shape)
+            "training_data_shape": self.split_data.X_train.shape
         })
 
         self.add_state(
@@ -592,7 +578,7 @@ class TrackedPipeline:
             k: v() for k, v in metadata.items() if callable(v)
         })
         __search, _ = self.split_data.models[name]
-        search: RandomizedSearchCV = unwrap(__search)
+        search: GridSearchCV = unwrap(__search)
         metadata.update({
             "model_type": type(model).__name__,
             "cv": str(cv),
@@ -600,7 +586,7 @@ class TrackedPipeline:
             "scoring": scoring,
             "best_score": search.best_score_,
             "model_params": model.get_params(),
-            "training_data_shape": list(self.split_data.X_train.shape)
+            "training_data_shape": self.split_data.X_train.shape
         })
 
         self.add_state(
@@ -675,7 +661,7 @@ class TrackedPipeline:
         **metadata: Any
     ) -> Self:
 
-        pred_dict: Dict[str, List[str]] = SplitProcess.example(
+        pred_dict: Dict[str, NDArrayStr] = SplitProcess.example(
             data=unwrap(self.split_data),
             n=n,
             random_state=random_state
@@ -703,13 +689,12 @@ class TrackedPipeline:
         if metadata is None:
             metadata = {}
 
-        if X is not None and y is not None:
-            self.states.append(DataState(
-                X=X,
-                y=y,
-                name=name,
-                metadata=metadata
-            ))
+        self.states.append(DataState(
+            X=X,
+            y=y,
+            name=name,
+            metadata=metadata
+        ))
 
         return self
     
@@ -747,18 +732,13 @@ class TrackedPipeline:
         loading_data = unwrap(self.loading_data)
 
         # Construire le rapport
-        report = {
+        report: Dict[str, Any] = {
             "pipeline_name": self.name,
             "transformers": loading_data.transformers,
             "states": {state.name: state.to_dict() for state in self.states}
         }
 
-        if not os.path.exists(EXPORT_PATH):
-            os.makedirs(EXPORT_PATH)
-        with open(file_path, "w", encoding="utf-8") as file:
-            yaml.dump(report, file)
-        with open(file_path_for_quarto, "w", encoding="utf-8") as file:
-            yaml.dump(report, file)
+        dump_yaml.dump(file_path, file_path_for_quarto, report)
 
         return self
     
@@ -797,7 +777,7 @@ class TrackedPipeline:
         grid = np.zeros((len(unique_C), len(unique_gamma)))
         grid[inv_C, inv_gamma] = db_grid.metadata["cv_results"]["mean_test_score"]
 
-        visualize_grid_search(graph_folder, graph_folder_for_quarto, grid, unique_C, unique_gamma, "SVC")
+        visualize_grid_search(graph_folder, graph_folder_for_quarto, grid, unique_C, "C", unique_gamma, "gamma", "SVC")
 
         plt.tight_layout()
         if force_plot:
@@ -821,7 +801,7 @@ class TrackedPipeline:
         for n, res in metadata.items():
             if res["convergence"] < 1.0:
                 continue
-            plt.errorbar(range(self.nb_shapes), res["mcc_mean_progression"], yerr=np.sqrt(res["mcc_var_progression"]), label=n)
+            plt.errorbar(range(2*self.nb_shapes), res["mcc_mean_progression"], yerr=np.sqrt(res["mcc_var_progression"]), label=n)
         plt.title("Performance MCC")
         plt.legend()
 
@@ -829,11 +809,14 @@ class TrackedPipeline:
         for n, res in metadata.items():
             if res["convergence"] < 1.0:
                 continue
-            plt.plot(res["stability_scores_progression"], label=f"Jaccard {n}" if res["is_selector"] else f"Subspace Sim {n}")
-        plt.title("Stabilité des Sélections/Composantes")
+            plt.plot(res["stability_scores_progression"], label=f"Jaccard {n}")
+        plt.title("Stabilité des Sélections")
         plt.legend()
 
         plt.tight_layout()
+
+        if not os.path.exists(graph_folder):
+            os.makedirs(graph_folder)
         plt.savefig(graph_folder / "selection.svg")
         if force_plot:
             plt.show()
@@ -860,7 +843,7 @@ class TrackedPipeline:
                 subprocess.run(["quarto", "render", "coptic_report.qmd", 
                                 "--to", "pdf,revealjs",
                                 "--output", f"OCR_{self.nb_shapes}_{self.selection}",
-                                "--output-dir", "report\quarto"], 
+                                "--output-dir", "report\\quarto"], 
                                 stdout = subprocess.DEVNULL,
                                 stderr = subprocess.DEVNULL)
             except subprocess.CalledProcessError as e:

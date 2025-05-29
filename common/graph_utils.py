@@ -1,7 +1,6 @@
 from pathlib import Path
 from typing import Any, Optional
 import numpy as np
-import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
@@ -25,7 +24,6 @@ def visualize_scaling(graph_folder: Path, graph_folder_for_quarto: Path, data_be
     Visualise l"effet du standard scaling avec détection des outliers via MAD
     
     Paramètres:
-    data (pandas.DataFrame): DataFrame avec les features à visualiser
     
     Retourne:
     Graphiques de boxplots et statistiques des outliers
@@ -56,14 +54,16 @@ def visualize_correlation(graph_folder: Path, graph_folder_for_quarto: Path, dat
 
 def visualize_train_test_split(graph_folder: Path, graph_folder_for_quarto: Path, train: NDArrayStr, test: NDArrayStr) -> None:
 
-    df_set = pd.concat([
-        pd.DataFrame({"Letter": train}).value_counts(),
-        pd.DataFrame({"Letter": test}).value_counts(),
-    ], axis=1, keys=["train", "test"])
+    unique_train, counts_train = np.unique(train, return_counts=True)
+    unique_test, counts_test = np.unique(test, return_counts=True)
+    count_sort_ind = np.argsort(-counts_train-counts_test)
 
-    df_set.plot(kind="bar", stacked=True, color=["steelblue", "red"])
+    plt.figure(figsize=(15, 8))
+    plt.bar(unique_train[count_sort_ind], counts_train[count_sort_ind], color=["steelblue"], label="train")
+    plt.bar(unique_test[count_sort_ind], counts_test[count_sort_ind], color=["red"], label="test", bottom=counts_train[count_sort_ind])
+    plt.xticks(rotation=45)
+    plt.legend()
     plt.title("Number of letters in each dataset")
-    plt.subplots_adjust(bottom=0.25)
     plt.savefig(graph_folder / "split.svg")
     plt.savefig(graph_folder_for_quarto / "split.svg")
 
@@ -75,11 +75,22 @@ def visualize_confusion_matrix(graph_folder: Path, graph_folder_for_quarto: Path
     plt.xlabel("Predicted")
     plt.ylabel("Actual")
     plt.title(f"Confusion Matrix for {model_name}")
+    plt.subplots_adjust(bottom=0.20, left=0.20)
+
     plt.savefig(graph_folder / f"cm_{model_name}.svg")
     plt.savefig(graph_folder_for_quarto / f"cm_{model_name}.svg")
 
 
-def visualize_grid_search(graph_folder: Path, graph_folder_for_quarto: Path, search: NDArrayNum, x_name: NDArrayNum, y_name: NDArrayNum, model_name: str) -> None:
+def visualize_grid_search(
+    graph_folder: Path,
+    graph_folder_for_quarto: Path,
+    search: NDArrayNum,
+    x_name: NDArrayNum,
+    x_name_label: str,
+    y_name: NDArrayNum,
+    y_name_label: str,
+    model_name: str
+) -> None:
 
     plt.figure()
     sns.heatmap(
@@ -89,6 +100,11 @@ def visualize_grid_search(graph_folder: Path, graph_folder_for_quarto: Path, sea
         xticklabels=x_name.tolist(), 
         yticklabels=y_name.tolist()
     )
+    plt.xlabel(x_name_label)
+    plt.ylabel(y_name_label)
     plt.title(f"Search for {model_name}")
+    plt.yticks(rotation=-90)
+    plt.subplots_adjust(bottom=0.20)
+
     plt.savefig(graph_folder / f"search_{model_name}.svg")
     plt.savefig(graph_folder_for_quarto / f"search_{model_name}.svg")
