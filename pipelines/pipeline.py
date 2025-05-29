@@ -21,7 +21,7 @@ from common.data_loading import load_database, load_database_from_save
 from common.datastate import DataState
 from common.graph_utils import visualize_confusion_matrix, visualize_correlation, visualize_grid_search, visualize_scaling, visualize_train_test_split
 from common.transformer import get_sorted_idx
-from common.types import NDArrayBool, NDArrayFloat, NDArrayNum, NDArrayStr, Transformer
+from common.types import NDArrayBool, NDArrayFloat, NDArrayNum, NDArrayStr, NDArrayUInt, Transformer
 from common.utils import jaccard_index, outlier_analysis, unwrap
 from pipelines import dump_yaml
 from pipelines.data_stages import LoadingData, SplitData
@@ -280,8 +280,8 @@ class SplitProcess:
 class TrackedPipeline:
     name: str
     nb_shapes: int
-    nb_features_selected: int = field(init=False)
     selection: str
+    features_selected: Optional[NDArrayUInt] = field(init=False, default=None)
     loading_data: Optional[LoadingData] = field(init=False, default=None)
     split_data: Optional[SplitData] = field(init=False, default=None)
     states: List[DataState] = field(init=False, factory=list)
@@ -312,7 +312,7 @@ class TrackedPipeline:
 
         metadata = {
             "SIZE": self.loading_data.data_size,
-            "TARGET": {k: v for (k, v) in zip(*np.unique(self.loading_data.current_y, return_counts=True))},
+            "TARGET": {str(k): int(v) for (k, v) in zip(*np.unique(self.loading_data.current_y, return_counts=True))},
             "NB_PATCHES": self.nb_shapes,
             "FEATURES": self.loading_data.classes,
             "OUTLIERS_ANALYSIS": outlier_analysis(self.loading_data.current_X),
@@ -363,6 +363,9 @@ class TrackedPipeline:
             name=f"after_{name}", 
             metadata=metadata
         )
+
+        if "SELECTED_FEATURES" in metadata:
+            self.features_selected = metadata["SELECTED_FEATURES"]
         return self
 
 
@@ -766,7 +769,10 @@ class TrackedPipeline:
         if self.nb_shapes < 20:
             visualize_scaling(graph_folder, graph_folder_for_quarto, db_before_scaling.X, db_after_scaling.X)
         if db_split.X.shape[1] < 10:
-            visualize_correlation(graph_folder, graph_folder_for_quarto, db_split.X, loading_data.classes)
+            classes = loading_data.classes
+            if self.features_selected is not None:
+                classes = classes[self.features_selected]
+            visualize_correlation(graph_folder, graph_folder_for_quarto, db_split.X, classes)
 
         visualize_train_test_split(graph_folder, graph_folder_for_quarto, split_data.y_train, split_data.y_test)
         for model_name, metadata in ((s.name, s.metadata) for s in self.states if "eval" in s.name):

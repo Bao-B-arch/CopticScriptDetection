@@ -1,12 +1,13 @@
 
 import os
 from pathlib import Path
-from typing import Any, Dict, Union
+from typing import Any, Dict, Tuple, Union
 import numpy as np
 from sklearn.base import BaseEstimator
 import yaml
 
 from common.config import EXPORT_PATH
+from common.transformer import DoNothingSelector, LetterRemover
 
 def setup_yaml_representers() -> None:
     """Setup custom YAML representers for NumPy and scikit-learn objects."""
@@ -31,6 +32,8 @@ def setup_yaml_representers() -> None:
             # Filter out complex nested objects for readability
             simple_params = {}
             for key, value in params.items():
+                if key == "estimator":
+                    continue
                 if isinstance(value, (str, int, float, bool, type(None))):
                     simple_params[key] = value
                 elif isinstance(value, (list, tuple)) and len(value) < 10:
@@ -44,42 +47,60 @@ def setup_yaml_representers() -> None:
         else:
             # Fallback: represent as string
             return dumper.represent_str(str(obj))
+        
+    def letter_remover_representer(dumper: yaml.Dumper, obj: LetterRemover) -> yaml.MappingNode:
+        return dumper.represent_dict({
+            '__class__': f"{obj.__class__.__module__}.{obj.__class__.__name__}",
+            'letters_to_remove': obj.letters_to_remove
+        })
     
-    # Handle other complex objects with a generic approach
-    def generic_object_representer(dumper: yaml.Dumper, obj: Any) -> Union[yaml.MappingNode, yaml.ScalarNode]:
-        """Fallback representer for complex objects."""
+    def do_nothing_representer(dumper: yaml.Dumper, obj: DoNothingSelector) -> yaml.MappingNode:
+        return dumper.represent_dict({
+            '__class__': f"{obj.__class__.__module__}.{obj.__class__.__name__}"
+        })
+
+    def numpy_ma_representer(dumper: yaml.Dumper, ma_array: np.ma.MaskedArray[Any, Any]) -> Union[yaml.ScalarNode, yaml.SequenceNode]:
+        """Handle numpy masked arrays - represent as simple arrays."""
         try:
-            # Try to convert to a simple representation
-            if hasattr(obj, '__dict__'):
-                simple_dict = {}
-                for key, value in obj.__dict__.items():
-                    if isinstance(value, (str, int, float, bool, type(None))):
-                        simple_dict[key] = value
-                return dumper.represent_dict({
-                    '__class__': f"{obj.__class__.__module__}.{obj.__class__.__name__}",
-                    'attributes': simple_dict
-                })
+            # Convert masked array to regular array/list
+            if hasattr(ma_array, 'filled'):
+                # Use filled() to get array with masked values filled
+                filled_array = ma_array.filled()
+                return dumper.represent_list(filled_array.tolist())
+            elif hasattr(ma_array, 'data'):
+                # Fallback to just the data portion
+                return dumper.represent_list(ma_array.data.tolist())
             else:
-                return dumper.represent_str(str(obj))
+                # Last resort - convert to string
+                return dumper.represent_str(str(ma_array))
+        except Exception as e:
+            return dumper.represent_str(f"<numpy.ma object - serialization error: {str(e)}>")
+
+    def tuple_representer(dumper: yaml.Dumper, tup: Tuple[Any, ...]) -> Union[yaml.ScalarNode, yaml.SequenceNode]:
+        """Handle tuples (including numpy shapes)."""
+        try:
+            # Convert to list for cleaner YAML representation
+            return dumper.represent_list(list(tup))
         except Exception:
-            return dumper.represent_str(f"<{type(obj).__name__} object>")
+            return dumper.represent_str(str(tup))
     
     # Register representers for NumPy types
     yaml.add_representer(np.ndarray, ndarray_representer)
     yaml.add_representer(np.dtype, numpy_dtype_representer)
-
-    for numpy_type in [np.int8, np.int16, np.int32, np.int64,
-                        np.uint8, np.uint16, np.uint32, np.uint64,
-                        np.float16, np.float32, np.float64,
-                        np.complex64, np.complex128,
-                        np.bool_]:
-        yaml.add_representer(numpy_type, numpy_scalar_representer)
-
-    # Handle numpy.generic (parent class for all numpy scalars)
     yaml.add_representer(np.generic, numpy_scalar_representer)
+    yaml.add_representer(tuple, tuple_representer)
     
     # Register for scikit-learn estimators
     yaml.add_representer(BaseEstimator, sklearn_representer)
+    yaml.add_representer(LetterRemover, letter_remover_representer)
+    yaml.add_representer(DoNothingSelector, do_nothing_representer)
+    yaml.add_representer(np.ma.MaskedArray, numpy_ma_representer)
+
+    # Add multi-representers for better coverage
+    yaml.add_multi_representer(np.generic, numpy_scalar_representer)
+    yaml.add_multi_representer(np.ndarray, ndarray_representer)
+    yaml.add_multi_representer(np.generic, numpy_scalar_representer)
+    yaml.add_multi_representer(tuple, tuple_representer)
 
 
 def dump(file_path: Path, file_path_for_quarto: Path, report: Dict[str, Any]):
@@ -88,6 +109,6 @@ def dump(file_path: Path, file_path_for_quarto: Path, report: Dict[str, Any]):
     if not os.path.exists(EXPORT_PATH):
         os.makedirs(EXPORT_PATH)
     with open(file_path, "w", encoding="utf-8") as file:
-        yaml.dump(report, file)
+        yaml.dump(report, file, default_flow_style=False, allow_unicode=True, width=float('inf'), default_style=None)
     with open(file_path_for_quarto, "w", encoding="utf-8") as file:
-        yaml.dump(report, file)
+        yaml.dump(report, file, default_flow_style=False, allow_unicode=True, width=float('inf'), default_style=None)

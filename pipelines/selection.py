@@ -36,7 +36,7 @@ def run_selection(**config: Any) -> None:
             transformers=selectors,
             model=SVC(random_state=RANDOM_STATE, class_weight="balanced", cache_size=1000),
             name="test_selection_features",
-            cv=5
+            n_fold=5
     )\
         .export_report(
             file_path="test_selection_report.yaml"

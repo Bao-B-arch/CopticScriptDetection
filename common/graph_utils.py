@@ -45,7 +45,7 @@ def visualize_scaling(graph_folder: Path, graph_folder_for_quarto: Path, data_be
 
 def visualize_correlation(graph_folder: Path, graph_folder_for_quarto: Path, data: NDArrayNum, labels: NDArrayStr) -> None:
 
-    plt.figure(figsize=(19, 15))
+    plt.figure(figsize=(15, 8))
     sns.heatmap(np.corrcoef(data, rowvar=False), xticklabels=labels.tolist(), yticklabels=labels.tolist())
     plt.title("Correlation Matrix", fontsize=16)
     plt.savefig(graph_folder / "correlation.svg")
@@ -98,13 +98,14 @@ def visualize_grid_search(
         cmap=sns.color_palette("flare", as_cmap=True), 
         norm=MidpointNormalize(vmin=0.2, midpoint=0.92), 
         xticklabels=x_name.tolist(), 
-        yticklabels=y_name.tolist()
+        yticklabels=y_name.tolist(),
+        annot=True, fmt=".2f", 
     )
     plt.xlabel(x_name_label)
     plt.ylabel(y_name_label)
     plt.title(f"Search for {model_name}")
-    plt.yticks(rotation=-90)
-    plt.subplots_adjust(bottom=0.20)
+    plt.yticks(rotation=0)
+    plt.subplots_adjust(bottom=0.20, left=0.20)
 
     plt.savefig(graph_folder / f"search_{model_name}.svg")
     plt.savefig(graph_folder_for_quarto / f"search_{model_name}.svg")

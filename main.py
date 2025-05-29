@@ -18,7 +18,7 @@ if __name__ == "__main__":
     if args.run:
         run_ocr(nb_shapes=16, selection=None)
         run_ocr(nb_shapes=16, selection="l1")
-        run_ocr(nb_shapes=784, selection=None)
+        #run_ocr(nb_shapes=784, selection=None)
 
     main_end_timer = timer()
     print(f"Script lasted {main_end_timer - main_start_timer:.2f} seconds.")
