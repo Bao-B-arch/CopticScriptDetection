@@ -59,10 +59,22 @@ Aussi, on commencera par une description de la base de données, puis des featur
 import yaml
 
 with open(f"report/OCR_coptic_16_l1_report.yaml", "r") as file:
-    data = yaml.safe_load(file)
+    data_16_l1 = yaml.safe_load(file)
+data_16_l1 = data_16_l1["states"]
 
-data = data["states"]
-nb_letters = data["initial_data"]["shape"][0]
+with open(f"report/OCR_coptic_16_None_report.yaml", "r") as file:
+    data_16_None = yaml.safe_load(file)
+data_16_None = data_16_None["states"]
+
+with open(f"report/OCR_coptic_784_None_report.yaml", "r") as file:
+    data_784_None = yaml.safe_load(file)
+data_784_None = data_784_None["states"]
+
+with open(f"report/OCR_coptic_784_l1_report.yaml", "r") as file:
+    data_784_l1 = yaml.safe_load(file)
+data_784_l1 = data_784_l1["states"]
+
+nb_letters = data_16_l1["initial_data"]["shape"][0]
 ```
 
 ## Description de la base de données
@@ -72,19 +84,22 @@ La base de données se compose de `{python} nb_letters` images de taille `28x28`
 ### Valeurs cibles
 
 ```{python}
-dict_letter = data["after_letter_to_remove"]["metadata"]["LETTER_REMOVED"]
+dict_letter = data_16_l1["after_letter_to_remove"]["metadata"]["LETTER_REMOVED"]
 
 str_letter = ", ".join([f"`{l}`" for l in dict_letter])
 images_letter = ", ".join([f"{l}" for l in dict_letter.values()])
+targets = data_16_l1["initial_data"]["metadata"]["TARGET"]
+features = data_16_l1["initial_data"]["metadata"]["FEATURES"]
+npatches = data_16_l1["initial_data"]["metadata"]["NB_PATCHES"]
 ```
 
 ::: {.content-visible when-format="pdf"}
 
-On dénombre `{python} len(data["initial_data"]["metadata"]["TARGET"])` lettres copte dans notre base de données. Cependant `{python} str_letter` seront retirées car n'ayant pas assez d'images associées (respectivement `{python} images_letter`). La base de données se comporte donc de `{python} len(data["initial_data"]["metadata"]["TARGET"]) - len(dict_letter)` classes effectives et de `{python} data["after_letter_to_remove"]["shape"][0]` images, aussi appelées `samples` dans ce contexte.
+On dénombre `{python} len(targets)` lettres copte dans notre base de données. Cependant `{python} str_letter` seront retirées car n'ayant pas assez d'images associées (respectivement `{python} images_letter`). La base de données se comporte donc de `{python} len(targets) - len(dict_letter)` classes effectives et de `{python} data_16_l1["after_letter_to_remove"]["shape"][0]` images, aussi appelées `samples` dans ce contexte.
 
 :::
 
-![distribution des lettres](./graph/graphs_16_l1/dataset.svg){#fig-split}
+![Distribution des lettres](./graph/graphs_16_l1/dataset.svg){#fig-split}
 
 On peut déjà conclure que notre jeu de données n'est pas équilibré et que cela pourra engendrer des difficultés à détecter les lettres les moins fréquentes. On sait aussi que l'`accuracy`, la métrique par défaut utilisée en machine learning sera moines pertinente. On lui préférera un indicateur pouvant gérer le deséquilibre de classe comme le `coefficient de corrélation de Matthews`, qui sera noté `MCC` par la suite.
 
@@ -98,11 +113,7 @@ Une possibilité pour régler ce déséquilibre serait la génération de donné
 
 ## Description des features
 
-```{python}
-npatches = data["initial_data"]["metadata"]["NB_PATCHES"]
-```
-
-Chaque image est découpée en `{python} npatches` patches chevauchant qui recouvre la moitié des patches voisins. Pour chaque patch, on calcule la moyenne et la variance des niveaux de gris donnant ainsi `{python} len(data["initial_data"]["metadata"]["FEATURES"])` features par image.
+Chaque image est découpée en `{python} npatches` patches chevauchant qui recouvre la moitié des patches voisins. Pour chaque patch, on calcule la moyenne et la variance des niveaux de gris donnant ainsi `{python} len(features)` features par image.
 
 Chaque patch ayant une position sur l'image, on peut consistuer une nouvelle image à partir des moyennes des patches et une autre à partir des variances. Concernant les variances, celles-ci étant par nature homogène au carré de la moyenne, leur représentation directe comme image en niveau de gris n'aurait pas de sens. Aussi, on affiche à la place l'écart-type des niveaux de gris qui est suffisamment proche de la variance pour une représentation visuelle.
 
@@ -112,9 +123,9 @@ Exemple pour une lettre `qima`:
 
 ![Qima](./Images_Traitees/qima/objet_1_585.png){#fig-letter width=40%}
 
-![features moyennes](`{python} f"./export/{npatches}patches/qima/example_mean_qima.png"`){#fig-features width=40%}
+![Features moyennes](`{python} f"./export/{npatches}patches/qima/example_mean_qima.png"`){#fig-features width=40%}
 
-![features "variance"](`{python} f"./export/{npatches}patches/qima/example_std_qima.png"`){#fig-features width=40%}
+![Features "variance"](`{python} f"./export/{npatches}patches/qima/example_std_qima.png"`){#fig-features width=40%}
 
 :::
 
@@ -191,8 +202,8 @@ Tout comme il est indiqué dans [la documentation sur les transformations de mis
 Par curiosité, la méthode `MAD` (pour Median Absolute Distance) a été utilisée pour calculer le nombre de valeurs aberrantes potentielles. Pour rappel, on concidère que, dans un cas non-borné, la mise à l'échelle reste valide tant qu'on ne dépasse pas `5%` de valeurs aberrantes par features.
 
 ```{python}
-nb_outliers = data["initial_data"]["metadata"]["OUTLIERS_ANALYSIS"]["nb_outliers"]
-pc_outliers = data["initial_data"]["metadata"]["OUTLIERS_ANALYSIS"]["percent"]
+nb_outliers = data_16_l1["initial_data"]["metadata"]["OUTLIERS_ANALYSIS"]["nb_outliers"]
+pc_outliers = data_16_l1["initial_data"]["metadata"]["OUTLIERS_ANALYSIS"]["percent"]
 
 import pandas as pd
 df_outlier = pd.DataFrame({"nb_outliers": nb_outliers, "percent": pc_outliers})
@@ -230,21 +241,32 @@ Différente approches testées en validation croisée
 
 ### Séparation ensemble d'apprentissage et de test
 
+L'entrainement des modèles est effectué sur un ensemble de données, appelées données d'entrainement qui compose classiquement `80%` du jeu de données initial. 
+
 ```{python}
-train_percent = f"{data['train_test_split']['metadata']['TRAIN_SIZE']['percent']:.2f}"
-test_percent = f"{data['train_test_split']['metadata']['TEST_SIZE']['percent']:.2f}"
+train_percent = f"{data_16_l1['train_test_split']['metadata']['TRAIN_SIZE']['percent']:.2f}"
+test_percent = f"{data_16_l1['train_test_split']['metadata']['TEST_SIZE']['percent']:.2f}"
 ```
 
 | Jeu de données | Nombre d'images |
 |--|--|
-| TOTAL | `{python} data["train_test_split"]["shape"][0]`
-| TRAIN | `{python} data["train_test_split"]["metadata"]["TRAIN_SIZE"]["value"]` (`{python} train_percent`%)
-| TEST | `{python} data["train_test_split"]["metadata"]["TEST_SIZE"]["value"]` (`{python} test_percent`%)
+| TOTAL | `{python} data_16_l1["train_test_split"]["shape"][0]`
+| TRAIN | `{python} data_16_l1["train_test_split"]["metadata"]["TRAIN_SIZE"]["value"]` (`{python} train_percent`%)
+| TEST | `{python} data_16_l1["train_test_split"]["metadata"]["TEST_SIZE"]["value"]` (`{python} test_percent`%)
 
+Afin d'éviter que certaines classes soient sous ou sur représentées dans l'ensemble d'entrainement, la séparation des données est stratifiée. Le graphe suivant montre l'effet de cette stratification. Chaque classe est découpée en deux parties, une pour l'entrainement et une pour le test.
 
-### Recherche des hyper paramètres
+![Séparation stratifiée des classes](./graph/graphs_16_l1/split.svg){#fig-split}
 
-On considère deux modèles, un SVM et un Random Forest. Actuellement on essaie d'optimiser les hyper paramètres uniquement du SVM. On étudie pour cela deux hyper paramètres `C` et `gamma`.
+::: {.content-visible when-format="pdf"}
+
+\newpage
+
+:::
+
+### Recherche des hyperparamètres
+
+On a retenu deux catégories de modèles, `SVM` et un `Random Forest`. On cherche à optimiser les hyperparamètres uniquement du SVM. On étudie pour cela deux hyper paramètres `C` et `gamma`.
 
 #### C
 
@@ -256,33 +278,154 @@ On considère deux modèles, un SVM et un Random Forest. Actuellement on essaie 
 
 #### Résultats
 
-En utilisant un shuffle split stratifié, on obtient les paramètres optimaux suivants:
+La recherche de `C` et `gamma` se fait via une recherche de grille. Chaque combinaison de paramètre `C` et `gamma` est testée `5` fois par validation croisée. Comme indiqué dans la description des données, on utilise le `MCC` pour évaluer la qualité générale de l'apprentissage d'un modèle.
 
-| C | Gamma |
-|---|---|
-|`{python} f"{data['model_search_svm']['metadata']['model_params']['C']:.2f}"` | `{python} f"{data['model_search_svm']['metadata']['model_params']['gamma']:.2f}"` |
+Avec les résultats finaux:
+
+| Features | Sélection | C | Gamma |
+|---|---|---|---|
+| `16_patches` |sans |`{python} f"{data_16_None['model_search_svm']['metadata']['model_params']['C']:.2f}"` | `{python} f"{data_16_None['model_search_svm']['metadata']['model_params']['gamma']:.2f}"` |
+| |avec | `{python} f"{data_16_l1['model_search_svm']['metadata']['model_params']['C']:.2f}"` | `{python} f"{data_16_l1['model_search_svm']['metadata']['model_params']['gamma']:.2f}"` |
+| `whole_image` |sans | `{python} f"{data_784_None['model_search_svm']['metadata']['model_params']['C']:.2f}"` | `{python} f"{data_784_None['model_search_svm']['metadata']['model_params']['gamma']:.2f}"` |
+| |avec | `{python} f"{data_784_l1['model_search_svm']['metadata']['model_params']['C']:.2f}"` | `{python} f"{data_784_l1['model_search_svm']['metadata']['model_params']['gamma']:.2f}"` |
+
+On remarquera que pour les modèles `16_patches` on retrouve des coefficients similaires, ce qui est pas le cas pour `whole_image`. Cela tend à indiquer 
+
+::: {.content-visible when-format="pdf"}
+
+\newpage
+
+:::
 
 ## Résultats de l'entrainement
 
  Après apprentissage on trouve:
 
-| Modèle | Accuracy | Matthews Correlation Coefficient |
-|---|---|---|
-|Random Forest | `{python} f"{data['eval_rfc']['metadata']['accuracy_score']:.2f}"` | `{python} f"{data['eval_rfc']['metadata']['matthews_corrcoef']:.2f}"` |
-|SVM | `{python} f"{data['eval_search_svm']['metadata']['accuracy_score']:.2f}"` | `{python} f"{data['eval_search_svm']['metadata']['matthews_corrcoef']:.2f}"` |
+| Features | Sélection           | Modèle   | Accuracy | MCC |
+|---|---|---|---|---|
+| `16_patches` | sans  | Random Forest | `{python} f"{data_16_None['eval_rfc']['metadata']['accuracy_score']:.2f}"` | `{python} f"{data_16_None['eval_rfc']['metadata']['matthews_corrcoef']:.2f}"` |
+| |       | SVM    | `{python} f"{data_16_None['eval_search_svm']['metadata']['accuracy_score']:.2f}"` | `{python} f"{data_16_None['eval_search_svm']['metadata']['matthews_corrcoef']:.2f}"` |
+| |avec   | Random Forest | `{python} f"{data_16_l1['eval_rfc']['metadata']['accuracy_score']:.2f}"` | `{python} f"{data_16_l1['eval_rfc']['metadata']['matthews_corrcoef']:.2f}"` |
+| |       | SVM | `{python} f"{data_16_l1['eval_search_svm']['metadata']['accuracy_score']:.2f}"` | `{python} f"{data_16_l1['eval_search_svm']['metadata']['matthews_corrcoef']:.2f}"` |
+| `whole_image` | sans  | Random Forest | `{python} f"{data_784_None['eval_rfc']['metadata']['accuracy_score']:.2f}"` | `{python} f"{data_784_None['eval_rfc']['metadata']['matthews_corrcoef']:.2f}"` |
+| |       | SVM    | `{python} f"{data_784_None['eval_search_svm']['metadata']['accuracy_score']:.2f}"` | `{python} f"{data_784_None['eval_search_svm']['metadata']['matthews_corrcoef']:.2f}"` |
+| |avec   | Random Forest | `{python} f"{data_784_l1['eval_rfc']['metadata']['accuracy_score']:.2f}"` | `{python} f"{data_784_l1['eval_rfc']['metadata']['matthews_corrcoef']:.2f}"` |
+| |       | SVM | `{python} f"{data_784_l1['eval_search_svm']['metadata']['accuracy_score']:.2f}"` | `{python} f"{data_784_l1['eval_search_svm']['metadata']['matthews_corrcoef']:.2f}"` |
 
-### Matrices de confusion
 
-::: {layout-ncol=2}
+### Conclusion
 
-![RFC](./graph/graphs_16_l1/cm_eval_RFC.svg){#fig-cm_rfc}
+On trouvera en appendice B les matrices de confusions pour les huits modèles pour avoir des résultats plus précis. On remarque des les modèles sans sélection de features donnent de meilleurs résultats que ce soit au niveau global ou en analysant classe par classe, des résultats qu'on pourrait qualifier de très bons, $MCC > 0.95$. On remarque ensuite que les deux features (`whole_image` et `16_patches`) donne des résultats extrêmement proches, confirmant l'intuition concernant le choix des features `16_patches` pour résumer l'image entière.
 
-![SVM](./graph/graphs_16_l1/cm_eval_search_svm.svg){#fig-cm_svm}
+Ensuite, concernant les modèles incorporant une sélection de features, on remarque une baisse drastique de la qualité des modèles. Cependant les features `16_patches` conservent un `MCC` correct, autour de $0.66$, alors que le modèle `whole_image` est désastreux avec un `MCC` proche de $0.44$ et la seule instance où les performances du `SVM` est en deça de celui du `RFC`.
+
+Les matrices de confusions ne permettent pas de dégager une structure particulière, sauf concernant les classes `Khi` et `Dianda` qui possèdent systématiquement (mais à un degré différent) des confusions entre elles. Ces deux classes possédant un nombre raisonnable de samples (plus de 200), il est fort probable qu'il ne s'agisse pas d'un artefact associé au deséquilibre des classes.
+
+::: {layout-ncol=3}
+
+![Dandia](./Images_Traitees/Dandia/objet_1_3.png){#fig-letter width=50%}
+
+![Khi](./Images_Traitees/Khi/objet_1_256.png){#fig-features width=50%}
+
+:::
+
+En affichant les deux lettres, on se rend compte qu'elles sont extrêmement similaires et que ce soit les features moyennes/variances ou les pixels eux-mêmes, ils ne permettent pas des les distinguer correctement.
+
+::: {.content-visible when-format="pdf"}
+
+\newpage
 
 :::
 
 ## Exemple de prédictions
 
 ```{python}
-pd.DataFrame(data["example"]["metadata"])
+pd.DataFrame(data_16_None["example"]["metadata"])
+pd.DataFrame(data_16_l1["example"]["metadata"])
+pd.DataFrame(data_784_None["example"]["metadata"])
+pd.DataFrame(data_784_l1["example"]["metadata"])
 ```
+
+::: {.content-visible when-format="pdf"}
+
+\newpage
+
+:::
+
+## Appendice A, la recherche d'hyperparamètres
+
+### 16_patches sans sélection
+
+![Heatmap des MCC moyens pour chaque combinaison de paramètres C et gamma pour le modèle 16_patches sans sélection](./graph/graphs_16_None/search_SVC.svg)
+
+::: {.content-visible when-format="pdf"}
+
+\newpage
+
+:::
+
+### 16_patches avec sélection
+
+![Heatmap des MCC moyens pour chaque combinaison de paramètres C et gamma pour le modèle 16_patches avec sélection](./graph/graphs_16_l1/search_SVC.svg)
+
+::: {.content-visible when-format="pdf"}
+
+\newpage
+
+:::
+
+### whole_image sans sélection
+
+![Heatmap des MCC moyens pour chaque combinaison de paramètres C et gamma pour le modèle whole_image sans sélection](./graph/graphs_784_None/search_SVC.svg)
+
+::: {.content-visible when-format="pdf"}
+
+\newpage
+
+:::
+
+### whole_image avec sélection
+
+![Heatmap des MCC moyens pour chaque combinaison de paramètres C et gamma pour le modèle whole_image avec sélection](./graph/graphs_784_l1/search_SVC.svg)
+
+## Appendice B, les matrices de confusion
+
+### 16_patches sans sélection
+
+::: {layout-nrow=2}
+
+![RFC pour modèle 16_patches sans sélection](./graph/graphs_16_None/cm_eval_RFC.svg){#fig-features width=40%}
+
+![SVM pour modèle 16_patches sans sélection](./graph/graphs_16_None/cm_eval_search_svm.svg){#fig-features width=40%}
+
+:::
+
+### 16_patches avec sélection
+
+::: {layout-nrow=2}
+
+![RFC pour modèle 16_patches avec sélection](./graph/graphs_16_l1/cm_eval_RFC.svg){#fig-features width=40%}
+
+![SVM pour modèle 16_patches avec sélection](./graph/graphs_16_l1/cm_eval_search_svm.svg){#fig-features width=40%}
+
+:::
+
+### whole_image sans sélection
+
+::: {layout-nrow=2}
+
+![RFC pour modèle whole_image sans sélection](./graph/graphs_784_None/cm_eval_RFC.svg){#fig-features width=40%}
+
+![SVM pour modèle whole_image sans sélection](./graph/graphs_784_None/cm_eval_search_svm.svg){#fig-features width=40%}
+
+:::
+
+### whole_image avec sélection
+
+::: {layout-nrow=2}
+
+![RFC pour modèle whole_image avec sélection](./graph/graphs_784_l1/cm_eval_RFC.svg){#fig-features width=40%}
+
+![SVM pour modèle whole_image avec sélection](./graph/graphs_784_l1/cm_eval_search_svm.svg){#fig-features width=40%}
+
+:::
