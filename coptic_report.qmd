@@ -20,8 +20,10 @@ format:
         toc: true
         toc-depth: 2
         toc-title: Table des Matières
-        colorlinks: true
         number-sections: true
+        colorlinks: true
+        default-image-extension: tex
+        fig-pos: 'h'
 jupyter: python3
 ---
 
@@ -30,54 +32,63 @@ jupyter: python3
 \newpage
 
 :::
-```{python}
-#| tags: [parameters]
-name = "16_l1"
 
-print(name)
-```
+## Objectif du projet
+
+L'objectif du projet est de construire un modèle statistique permettant d'effectuer la reconnaissance optique de caractères de l'alphabet copte. On appelle ce procédé l'OCR pour *optical character recognition* en anglais.
+
+Pour remplir cet objectif, j'ai choisi par simplicité d'utiliser une technique se basant uniquement sur du Machine Learning. C'est à dire en calculant des features spécifiques et en effectuant l'apprentissage de deux modèles différents, un `SVM` (Support Machine Vector) et un `Random Forest`, aussi appelé dans la suite `RFC`.
+
+### Cadrage du projet
+
+Il s'agit d'un projet de classification en contexte supervisé. En effet, on veut à partir d'une image d'un caractère copte, calculer un vecteur de features et l'utiliser pour prédire la lettre copte associée à l'image. Ici, on utilisera le terme de classes pour parler de lettres coptes.
+
+### Plan du rapport
+
+Ce rapport sera construit de manière chronologique, c'est-à-dire en présentant les étapes successives permettant de construire ces modèles (`SVM` et `RFC`). 
+
+Aussi, on commencera par une description de la base de données, puis des features calculées, ensuite on présentera l'ensemble des transformations appliquées à nos données, puis des stratégies utilisées pour réduire la quantité de features, puis de l'entrainement des modèles et la recherche d'hyperparamètres et pour finir on parlera des perfomances des divers modèles générés.
+
+::: {.content-visible when-format="pdf"}
+
+\newpage
+
+:::
 
 ```{python}
 import yaml
 
-with open(f"report/OCR_coptic_{name}_report.yaml", "r") as file:
+with open(f"report/OCR_coptic_16_l1_report.yaml", "r") as file:
     data = yaml.safe_load(file)
 
 data = data["states"]
+nb_letters = data["initial_data"]["shape"][0]
 ```
 
 ## Description de la base de données
 
-```{python}
-train_percent = f"{data['train_test_split']['metadata']['TRAIN_SIZE']['percent']:.2f}"
-test_percent = f"{data['train_test_split']['metadata']['TEST_SIZE']['percent']:.2f}"
-```
-
-La base de données se compose d'images `28x28` en nuances de gris.
-
-| Jeu de données | Nombre d'images |
-|--|--|
-| TOTAL | `{python} data["train_test_split"]["shape"][0]`
-| TRAIN | `{python} data["train_test_split"]["metadata"]["TRAIN_SIZE"]["value"]` (`{python} train_percent`%)
-| TEST | `{python} data["train_test_split"]["metadata"]["TEST_SIZE"]["value"]` (`{python} test_percent`%)
+La base de données se compose de `{python} nb_letters` images de taille `28x28` en niveau de gris. Ainsi chaque pixel de l'image prend une valeur comprise en `0` pour du noir et `255` pour du blanc.
 
 ### Valeurs cibles
 
 ```{python}
-list_letter = data["after_letter_to_remove"]["metadata"]["LETTER_REMOVED"]
+dict_letter = data["after_letter_to_remove"]["metadata"]["LETTER_REMOVED"]
 
-str_letter = ", ".join([f"`{l}`" for l in list_letter])
-images_letter = ", ".join([f"{l}" for l in list_letter.values()])
+str_letter = ", ".join([f"`{l}`" for l in dict_letter])
+images_letter = ", ".join([f"{l}" for l in dict_letter.values()])
 ```
 
 ::: {.content-visible when-format="pdf"}
 
-On dénombre `32` lettres dans l'alphabet copte. `{python} str_letter` ont été retirées car n'ayant pas assez d'images associées (respectivement `{python} images_letter`).
+On dénombre `{python} len(data["initial_data"]["metadata"]["TARGET"])` lettres copte dans notre base de données. Cependant `{python} str_letter` seront retirées car n'ayant pas assez d'images associées (respectivement `{python} images_letter`). La base de données se comporte donc de `{python} len(data["initial_data"]["metadata"]["TARGET"]) - len(dict_letter)` classes effectives et de `{python} data["after_letter_to_remove"]["shape"][0]` images, aussi appelées `samples` dans ce contexte.
 
 :::
 
-![distribution des lettres](`{python} f"./graph/graphs_{name}/split.svg"`){#fig-split}
+![distribution des lettres](./graph/graphs_16_l1/dataset.svg){#fig-split}
 
+On peut déjà conclure que notre jeu de données n'est pas équilibré et que cela pourra engendrer des difficultés à détecter les lettres les moins fréquentes. On sait aussi que l'`accuracy`, la métrique par défaut utilisée en machine learning sera moines pertinente. On lui préférera un indicateur pouvant gérer le deséquilibre de classe comme le `coefficient de corrélation de Matthews`, qui sera noté `MCC` par la suite.
+
+Une possibilité pour régler ce déséquilibre serait la génération de données artificielles. On pourrait, pour les lettres les moins présentes, générer des images similaires en introduisant des bruits gaussiens ou en les tournant légèrement.
 
 ::: {.content-visible when-format="pdf"}
 
@@ -87,20 +98,49 @@ On dénombre `32` lettres dans l'alphabet copte. `{python} str_letter` ont été
 
 ## Description des features
 
-Chaque image est découpée en `{python} data["initial_data"]["metadata"]["NB_PATCHES"]` patches et la moyenne de chaque patch est retenue donnant `{python} data["initial_data"]["metadata"]["NB_PATCHES"]` features par image.
+Chaque image est découpée en `{python} data["initial_data"]["metadata"]["NB_PATCHES"]` patches chevauchant. Pour chaque patch, on calcule la moyenne et la variance des niveaux de gris donnant ainsi `{python} len(data["initial_data"]["metadata"]["FEATURES"])` features par image.
 
-Exemple pour une lettre `qima`:
+Chaque patch ayant une position sur l'image, on peut consistuer une nouvelle image à partir des moyennes des patches et une autre à partir des variances. Concernant les variances, celles-ci étant par nature homogène au carré de la moyenne, leur représentation directe comme image en niveau de gris n'aurait pas de sens. Aussi, on affiche à la place l'écart-type des niveaux de gris qui est suffisamment proche de la variance pour une représentation visuelle. Exemple pour une lettre `qima`:
 
-::: {layout-ncol=2}
+::: {layout-ncol=3}
 
 ![lettre](./Images_Traitees/qima/objet_1_585.png){#fig-letter width=40%}
 
 ```{python}
 npatches = data["initial_data"]["metadata"]["NB_PATCHES"]
 ```
-![features](`{python} f"./export/{npatches}patches/qima/example_qima.png"`){#fig-features width=40%}
+![features moyennes](`{python} f"./export/{npatches}patches/qima/example_mean_qima.png"`){#fig-features width=40%}
+
+![features "variance"](`{python} f"./export/{npatches}patches/qima/example_std_qima.png"`){#fig-features width=40%}
 
 :::
+
+Exemple pour une lettre `Fai`:
+
+::: {layout-ncol=3}
+
+![lettre](./Images_Traitees/Fai/objet_1_83.png){#fig-letter width=40%}
+
+```{python}
+npatches = data["initial_data"]["metadata"]["NB_PATCHES"]
+```
+![features moyennes](`{python} f"./export/{npatches}patches/Fai/example_mean_Fai.png"`){#fig-features width=40%}
+
+![features "variance"](`{python} f"./export/{npatches}patches/Fai/example_std_Fai.png"`){#fig-features width=40%}
+
+:::
+
+```{python}
+train_percent = f"{data['train_test_split']['metadata']['TRAIN_SIZE']['percent']:.2f}"
+test_percent = f"{data['train_test_split']['metadata']['TEST_SIZE']['percent']:.2f}"
+```
+
+| Jeu de données | Nombre d'images |
+|--|--|
+| TOTAL | `{python} data["train_test_split"]["shape"][0]`
+| TRAIN | `{python} data["train_test_split"]["metadata"]["TRAIN_SIZE"]["value"]` (`{python} train_percent`%)
+| TEST | `{python} data["train_test_split"]["metadata"]["TEST_SIZE"]["value"]` (`{python} test_percent`%)
+
 
 ## Transformation des données
 
@@ -108,11 +148,7 @@ Afin d'éviter des problèmes numériques et des imprécisions lors de l'apprent
 
 Il sera utilisé un Standard Scaler: $z = \frac{x - m}{s}$ avec $m$ la moyenne et $s$ l'écart-type.
 
-### Analyse de viabilité du scaler
-
-Un Standard Scaler est simple mais sensible aux valeurs aberrantes. Une analyse de la proportion de potentielles valeurs aberrantes est effectuée afin de vérifier si ce scaler est correct.
-
-![Analyse des outliers](`{python} f"./graph/graphs_{name}/scaling.svg"`){#fig-scaling}
+![Analyse des outliers](./graph/graphs_16_None/scaling.svg){#fig-scaling}
 
 ::: {.content-visible when-format="revealjs"}
 
@@ -179,9 +215,9 @@ En utilisant un shuffle split stratifié, on obtient les paramètres optimaux su
 
 ::: {layout-ncol=2}
 
-![RFC](`{python} f"./graph/graphs_{name}/cm_eval_RFC.svg"`){#fig-cm_rfc}
+![RFC](./graph/graphs_16_l1/cm_eval_RFC.svg){#fig-cm_rfc}
 
-![SVM](`{python} f"./graph/graphs_{name}/cm_eval_search_svm.svg"`){#fig-cm_svm}
+![SVM](./graph/graphs_16_l1/cm_eval_search_svm.svg){#fig-cm_svm}
 
 :::
 

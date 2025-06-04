@@ -67,5 +67,4 @@ def run_ocr(**config: Any) -> None:
             path=SAVED_DATABASE_PATH,
     )\
         .export_graphes(force_plot=FORCE_PLOT)\
-        .export_visual_features()\
-        .build_quarto()
+        .export_visual_features()

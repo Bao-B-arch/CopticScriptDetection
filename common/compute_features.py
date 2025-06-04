@@ -66,7 +66,7 @@ def from_slices_to_masks(slices: NDArrayInt, image_size_sqrt: int) -> NDArrayBoo
 
 
 # pour chaque patch, on calcule la moyenne et la variance du niveau de gris et les 3 harmoniques non-principales du patch
-# ainsi on obtient 5*nb_patch features
+# ainsi on obtient 2*nb_patch features
 # en général on a 16 patches, ce qui donne donc 80 features
 def patches_features(
         database: Dict[str, NDArrayUInt],
@@ -78,10 +78,8 @@ def patches_features(
     shape_sqrt = int(np.sqrt(shape))
     columns: NDArrayStr = np.array(
         [f"mean_{i}" for i in range(shape)] + 
-        [f"var_{i}" for i in range(shape)] +
-        [f"fft_horizontal{i}" for i in range(shape)] +
-        [f"fft_vertical{i}" for i in range(shape)] +
-        [f"fft_diag{i}" for i in range(shape)])
+        [f"var_{i}" for i in range(shape)]
+    )
 
     letter_array: NDArrayStr = np.empty(data_size, dtype="<U10")
     idx: int = 0
@@ -102,7 +100,7 @@ def patches_features(
     # sinon, on rentre dans le cas classique
     # on calcule les slices pour retrouver les patches
     # et on calcule pour chaque patch, la moyenne et la variance
-    data_array: NDArrayFloat = np.zeros((data_size, 5*shape), dtype=np.float64)
+    data_array: NDArrayFloat = np.zeros((data_size, 2*shape), dtype=np.float64)
     slices_broadcast: NDArrayInt = patches_slices_broadcast(shape_sqrt, image_size_sqrt)
 
     idx: int = 0
@@ -114,21 +112,6 @@ def patches_features(
         data_array[idx:idx+n_imgs, :shape] = np.array([np.mean(patches, axis=(1,2)) for patches in masked_patches]).T
         data_array[idx:idx+n_imgs, shape:2*shape] = np.array([np.var(patches, axis=(1,2)) for patches in masked_patches]).T
 
-        fft_magnitude = [
-            # pour chaque patch, on calcule la fft réelle et on récupère les coefficient 1, 2 et 3 (0 étant la moyenne et elle est déjà calculée)
-            # l'intérêt et de récupérer les gradients horizontaux, verticaux et diagonaux
-            np.abs(np.fft.fft2(patches)).reshape(n_imgs, -1) for patches in masked_patches
-        ]
-        fft_normalized = [
-            fft / np.linalg.norm(fft, axis=-1, keepdims=True) for fft in fft_magnitude
-        ]
-
-        fft_filter = np.array([
-            fft[:, 1:4] for fft in fft_normalized
-        ]).transpose(1, 0, 2).reshape(n_imgs, -1)
-
-        data_array[idx:idx+n_imgs, 2*shape:] = fft_filter
-        
         letter_array[idx:idx+n_imgs] = folder
         idx += n_imgs
 
@@ -147,8 +130,16 @@ def export_visual_features(path: Path, images: NDArrayNum, names: NDArrayStr, sh
         curr_path = path / str(idx)
         if not os.path.exists(curr_path):
             os.makedirs(curr_path)
-        curr_path = curr_path / f"example_{idx}.png"
+        curr_path_mean = curr_path / f"example_mean_{idx}.png"
+        curr_path_std = curr_path / f"example_std_{idx}.png"
 
-        arr: NDArrayFloat = np.reshape(img.astype(np.uint8), (-1, shape_sqrt))
-        zoom_arr = np.kron(arr, np.ones((factor, factor))).astype(np.uint8)
-        cv2.imwrite(str(curr_path), zoom_arr)
+        img_mean = img[:shape]
+        arr_mean: NDArrayFloat = np.reshape(img_mean.astype(np.uint8), (-1, shape_sqrt))
+        zoom_arr_mean = np.kron(arr_mean, np.ones((factor, factor))).astype(np.uint8)
+        cv2.imwrite(str(curr_path_mean), zoom_arr_mean)
+
+        if len(img) > shape:
+            img_std = np.sqrt(img[shape:])
+            arr_std: NDArrayFloat = np.reshape(img_std.astype(np.uint8), (-1, shape_sqrt))
+            zoom_arr_std = np.kron(arr_std, np.ones((factor, factor))).astype(np.uint8)
+            cv2.imwrite(str(curr_path_std), zoom_arr_std)

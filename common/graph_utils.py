@@ -25,7 +25,7 @@ def visualize_scaling(graph_folder: Path, data_before: NDArrayNum, data_after: N
     """
     # Créer une figure avec des sous-graphiques
     fig, axes = plt.subplots(1, 2, figsize=(16, 6))
-    fig.suptitle("Analyse du Standard Scaling et Détection des Outliers (Méthode MAD)", fontsize=16)
+    fig.suptitle("Analyse du Standard Scaling", fontsize=16)
 
     # Boxplot avant scaling
     sns.boxplot(data=data_before, ax=axes[0])
@@ -65,8 +65,14 @@ def visualize_train_test_split(graph_folder: Path, train: NDArrayStr, test: NDAr
     plt.bar(unique_test[count_sort_ind], counts_test[count_sort_ind], color=["red"], label="test", bottom=counts_train[count_sort_ind])
     plt.xticks(rotation=45)
     plt.legend()
-    plt.title("Number of letters in each dataset")
+    plt.title("Number of samples for each classes in each dataset")
     plt.savefig(graph_folder / "split.svg")
+
+    plt.figure(figsize=(15, 8))
+    plt.bar(unique_train[count_sort_ind], counts_test[count_sort_ind] + counts_train[count_sort_ind], color=["steelblue"])
+    plt.xticks(rotation=45)
+    plt.title("Number of samples for each classes")
+    plt.savefig(graph_folder / "dataset.svg")
 
 
 def visualize_confusion_matrix(graph_folder: Path, cm: NDArrayNum, labels: NDArrayStr, model_name: str) -> None:
