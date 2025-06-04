@@ -559,7 +559,7 @@ class TrackedPipeline:
         if graph_folder is None:
             graph_folder = GRAPH_PATH / f"graphs_{self.nb_shapes}_{self.selection}"
 
-        test_selection_state = self.get_state(name="test_selection_features").metadata
+        test_selection_state = self.get_state(name="test_selection_features")
         metadata = test_selection_state.metadata
     
         plt.figure(figsize=(10, 4))

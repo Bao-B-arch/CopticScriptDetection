@@ -234,8 +234,32 @@ Ici, on affiche le nombre de valeurs aberrantes potentielles par features dépas
 
 ## Sélection des Features
 
-Reduction
-Différente approches testées en validation croisée
+Afin de réduire la quantité de features pour atteindre le modèle le plus parcimonieux possible, nous allons effectuer une sélection de features. L'objectif est d'atteindre `4` features sur les `{python} len(features)` actuelle.
+
+Pour répondre à cette contrainte nous avons testé quatre stratégies de sélection de features:
+
+* anova
+* information mutuelle, `MI`
+* régularisation L1, `L1`
+* élimination récursive de features, `RFE`
+
+Les deux premières techniques sont univariées, ie elles s'appliquent à chaque features indépendamment des autres, alors que les deux autres se basent sur des modèles pour calculer l'importance des features. `Anova` repose sur la variance et `MI` permet de prendre en compte les influences non-linéaires.
+
+Pour chaque méthode, la technique de sélection a été appliqué sur les données filtrées pour sélectionner un nombre `k` préétabli de features, puis un apprentissage sur un modèle `SVM` simple a été effectué et son `MCC` a été calculé comme indicateur de sa performance. Afin d'éviter les artefacts statistiques, l'apprentissage a été dupliqué `5` fois via une validation croisée stratifiée. Ce protocole a été répété pour chaque `k` entre `0` et `{python} len(features)`.
+
+Il s'agit donc de $4 \times 32 \times 5 = 640$ entrainements. Grace à ces données on peut tracer le graphe suivant permettant de juger de la performance potentielle d'un `SVM` en fonction de la stratégie de sélection de features utilisées et du nombre de features imposé.
+
+Pour chaque méthode de sélection de features donnée et pour chaque nombre de features à sélectionner `k`, `5` entrainements différents sont effectués. On les appelle les plis, de l'anglais fold. Cependant, rien n'indique qu'à chaque fois les `k` mêmes features seront sélectionnées à chaque plis. Aussi nous calculons le jaccard moyen entre toutes ses sélections de features qui représente une métrique de similarité. Si le jaccard est de $1.0$ ou proche de $1.0$, alors cela signifie que la méthode a, à chaque plis, sélectionné les mêmes features et donc reflète une stabilité dans la sélection. Plus ce score diminue, plus il y a de différences entre les plis et moins la méthode est stable.
+
+![Analyse des différentes méthodes de sélection de features. Performance et Stabilité.](./graph/graphs_16_None/selection.svg)
+
+On décide de sélectionner la méthode de régularisation L1, étant la plus performante pour un nombre faible de features. Cependant on remarque aussi qu'il s'agit de la plus instable des quatre.
+
+::: {.content-visible when-format="pdf"}
+
+\newpage
+
+:::
 
 ## Entrainement des modèles
 
@@ -289,7 +313,9 @@ Avec les résultats finaux:
 | `whole_image` |sans | `{python} f"{data_784_None['model_search_svm']['metadata']['model_params']['C']:.2f}"` | `{python} f"{data_784_None['model_search_svm']['metadata']['model_params']['gamma']:.2f}"` |
 | |avec | `{python} f"{data_784_l1['model_search_svm']['metadata']['model_params']['C']:.2f}"` | `{python} f"{data_784_l1['model_search_svm']['metadata']['model_params']['gamma']:.2f}"` |
 
-On remarquera que pour les modèles `16_patches` on retrouve des coefficients similaires, ce qui est pas le cas pour `whole_image`. Cela tend à indiquer 
+On remarquera que pour les modèles `16_patches` on retrouve des coefficients similaires, ce qui est pas le cas pour `whole_image`. Cela tend à indiquer que les modèles utilisant les features `whole_image` sont beaucoup moins stables en réduisant leur nombre. En analysant les grilles de recherche présente en appendice B, on remarque que sur une large portion de combinaison `C` et `gamma`, le `MCC` moyen est similaire et faible. On peut en conclure que la recherche d'hyperparamètres n'est pas utile pour le cas `whole_image` avec sélection de features.
+
+Un dernier point qui peut être soulevé est de la zone de recherche d'hyperparamètre n'est pas complétement adapté pour les modèles ayant une sélection de features. L'utilisation d'un outil plus spécialisé pour la recherche d'hyperparamètres comme Optuna pourrait résoudre ce problème.
 
 ::: {.content-visible when-format="pdf"}
 
@@ -315,7 +341,7 @@ On remarquera que pour les modèles `16_patches` on retrouve des coefficients si
 
 ### Conclusion
 
-On trouvera en appendice B les matrices de confusions pour les huits modèles pour avoir des résultats plus précis. On remarque des les modèles sans sélection de features donnent de meilleurs résultats que ce soit au niveau global ou en analysant classe par classe, des résultats qu'on pourrait qualifier de très bons, $MCC > 0.95$. On remarque ensuite que les deux features (`whole_image` et `16_patches`) donne des résultats extrêmement proches, confirmant l'intuition concernant le choix des features `16_patches` pour résumer l'image entière.
+On trouvera en appendice C les matrices de confusions pour les huits modèles pour avoir des résultats plus précis. On remarque des les modèles sans sélection de features donnent de meilleurs résultats que ce soit au niveau global ou en analysant classe par classe, des résultats qu'on pourrait qualifier de très bons, $MCC > 0.95$. On remarque ensuite que les deux features (`whole_image` et `16_patches`) donne des résultats extrêmement proches, confirmant l'intuition concernant le choix des features `16_patches` pour résumer l'image entière.
 
 Ensuite, concernant les modèles incorporant une sélection de features, on remarque une baisse drastique de la qualité des modèles. Cependant les features `16_patches` conservent un `MCC` correct, autour de $0.66$, alors que le modèle `whole_image` est désastreux avec un `MCC` proche de $0.44$ et la seule instance où les performances du `SVM` est en deça de celui du `RFC`.
 
@@ -337,13 +363,29 @@ En affichant les deux lettres, on se rend compte qu'elles sont extrêmement simi
 
 :::
 
-## Exemple de prédictions
+## Appendice A, exemple de prédictions
 
 ```{python}
-pd.DataFrame(data_16_None["example"]["metadata"])
-pd.DataFrame(data_16_l1["example"]["metadata"])
-pd.DataFrame(data_784_None["example"]["metadata"])
-pd.DataFrame(data_784_l1["example"]["metadata"])
+example_16_None = data_16_None["example"]["metadata"]
+example_16_l1 = data_16_l1["example"]["metadata"]
+example_784_None = data_784_None["example"]["metadata"]
+example_784_l1 = data_784_l1["example"]["metadata"]
+
+example = {}
+example["real"] = example_16_None["REAL"]
+example["16patches_sans_rfc"] = example_16_None["rfc"]
+example["16patches_sans_svm"] = example_16_None["search_svm"]
+example["16patches_avec_rfc"] = example_16_l1["rfc"]
+example["16patches_avec_svm"] = example_16_l1["search_svm"]
+example["wholeimage_sans_rfc"] = example_784_None["rfc"]
+example["wholeimage_sans_svm"] = example_784_None["search_svm"]
+example["wholeimage_avec_rfc"] = example_784_l1["rfc"]
+example["wholeimage_avec_svm"] = example_784_l1["search_svm"]
+
+df = pd.DataFrame(example)
+df = df.set_index("real")
+df.columns = pd.MultiIndex.from_tuples([tuple(c.split("_")) for c in df.columns])
+df
 ```
 
 ::: {.content-visible when-format="pdf"}
@@ -352,7 +394,7 @@ pd.DataFrame(data_784_l1["example"]["metadata"])
 
 :::
 
-## Appendice A, la recherche d'hyperparamètres
+## Appendice B, la recherche d'hyperparamètres
 
 ### 16_patches sans sélection
 
@@ -388,15 +430,15 @@ pd.DataFrame(data_784_l1["example"]["metadata"])
 
 ![Heatmap des MCC moyens pour chaque combinaison de paramètres C et gamma pour le modèle whole_image avec sélection](./graph/graphs_784_l1/search_SVC.svg)
 
-## Appendice B, les matrices de confusion
+## Appendice C, les matrices de confusion
 
 ### 16_patches sans sélection
 
 ::: {layout-nrow=2}
 
-![RFC pour modèle 16_patches sans sélection](./graph/graphs_16_None/cm_eval_RFC.svg){#fig-features width=40%}
+![RFC pour modèle 16_patches sans sélection](./graph/graphs_16_None/cm_eval_RFC.svg){#fig-features width=60%}
 
-![SVM pour modèle 16_patches sans sélection](./graph/graphs_16_None/cm_eval_search_svm.svg){#fig-features width=40%}
+![SVM pour modèle 16_patches sans sélection](./graph/graphs_16_None/cm_eval_search_svm.svg){#fig-features width=60%}
 
 :::
 
@@ -404,9 +446,9 @@ pd.DataFrame(data_784_l1["example"]["metadata"])
 
 ::: {layout-nrow=2}
 
-![RFC pour modèle 16_patches avec sélection](./graph/graphs_16_l1/cm_eval_RFC.svg){#fig-features width=40%}
+![RFC pour modèle 16_patches avec sélection](./graph/graphs_16_l1/cm_eval_RFC.svg){#fig-features width=60%}
 
-![SVM pour modèle 16_patches avec sélection](./graph/graphs_16_l1/cm_eval_search_svm.svg){#fig-features width=40%}
+![SVM pour modèle 16_patches avec sélection](./graph/graphs_16_l1/cm_eval_search_svm.svg){#fig-features width=60%}
 
 :::
 
@@ -414,9 +456,9 @@ pd.DataFrame(data_784_l1["example"]["metadata"])
 
 ::: {layout-nrow=2}
 
-![RFC pour modèle whole_image sans sélection](./graph/graphs_784_None/cm_eval_RFC.svg){#fig-features width=40%}
+![RFC pour modèle whole_image sans sélection](./graph/graphs_784_None/cm_eval_RFC.svg){#fig-features width=60%}
 
-![SVM pour modèle whole_image sans sélection](./graph/graphs_784_None/cm_eval_search_svm.svg){#fig-features width=40%}
+![SVM pour modèle whole_image sans sélection](./graph/graphs_784_None/cm_eval_search_svm.svg){#fig-features width=60%}
 
 :::
 
@@ -424,8 +466,8 @@ pd.DataFrame(data_784_l1["example"]["metadata"])
 
 ::: {layout-nrow=2}
 
-![RFC pour modèle whole_image avec sélection](./graph/graphs_784_l1/cm_eval_RFC.svg){#fig-features width=40%}
+![RFC pour modèle whole_image avec sélection](./graph/graphs_784_l1/cm_eval_RFC.svg){#fig-features width=60%}
 
-![SVM pour modèle whole_image avec sélection](./graph/graphs_784_l1/cm_eval_search_svm.svg){#fig-features width=40%}
+![SVM pour modèle whole_image avec sélection](./graph/graphs_784_l1/cm_eval_search_svm.svg){#fig-features width=60%}
 
 :::
