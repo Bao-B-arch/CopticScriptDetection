@@ -98,17 +98,20 @@ Une possibilité pour régler ce déséquilibre serait la génération de donné
 
 ## Description des features
 
-Chaque image est découpée en `{python} data["initial_data"]["metadata"]["NB_PATCHES"]` patches chevauchant. Pour chaque patch, on calcule la moyenne et la variance des niveaux de gris donnant ainsi `{python} len(data["initial_data"]["metadata"]["FEATURES"])` features par image.
-
-Chaque patch ayant une position sur l'image, on peut consistuer une nouvelle image à partir des moyennes des patches et une autre à partir des variances. Concernant les variances, celles-ci étant par nature homogène au carré de la moyenne, leur représentation directe comme image en niveau de gris n'aurait pas de sens. Aussi, on affiche à la place l'écart-type des niveaux de gris qui est suffisamment proche de la variance pour une représentation visuelle. Exemple pour une lettre `qima`:
-
-::: {layout-ncol=3}
-
-![lettre](./Images_Traitees/qima/objet_1_585.png){#fig-letter width=40%}
-
 ```{python}
 npatches = data["initial_data"]["metadata"]["NB_PATCHES"]
 ```
+
+Chaque image est découpée en `{python} npatches` patches chevauchant qui recouvre la moitié des patches voisins. Pour chaque patch, on calcule la moyenne et la variance des niveaux de gris donnant ainsi `{python} len(data["initial_data"]["metadata"]["FEATURES"])` features par image.
+
+Chaque patch ayant une position sur l'image, on peut consistuer une nouvelle image à partir des moyennes des patches et une autre à partir des variances. Concernant les variances, celles-ci étant par nature homogène au carré de la moyenne, leur représentation directe comme image en niveau de gris n'aurait pas de sens. Aussi, on affiche à la place l'écart-type des niveaux de gris qui est suffisamment proche de la variance pour une représentation visuelle.
+
+Exemple pour une lettre `qima`:
+
+::: {layout-ncol=3}
+
+![Qima](./Images_Traitees/qima/objet_1_585.png){#fig-letter width=40%}
+
 ![features moyennes](`{python} f"./export/{npatches}patches/qima/example_mean_qima.png"`){#fig-features width=40%}
 
 ![features "variance"](`{python} f"./export/{npatches}patches/qima/example_std_qima.png"`){#fig-features width=40%}
@@ -119,36 +122,92 @@ Exemple pour une lettre `Fai`:
 
 ::: {layout-ncol=3}
 
-![lettre](./Images_Traitees/Fai/objet_1_83.png){#fig-letter width=40%}
+![Fai](./Images_Traitees/Fai/objet_1_83.png){#fig-letter width=40%}
 
-```{python}
-npatches = data["initial_data"]["metadata"]["NB_PATCHES"]
-```
-![features moyennes](`{python} f"./export/{npatches}patches/Fai/example_mean_Fai.png"`){#fig-features width=40%}
+![Features moyennes](`{python} f"./export/{npatches}patches/Fai/example_mean_Fai.png"`){#fig-features width=40%}
 
-![features "variance"](`{python} f"./export/{npatches}patches/Fai/example_std_Fai.png"`){#fig-features width=40%}
+![Features "variance"](`{python} f"./export/{npatches}patches/Fai/example_std_Fai.png"`){#fig-features width=40%}
 
 :::
 
-```{python}
-train_percent = f"{data['train_test_split']['metadata']['TRAIN_SIZE']['percent']:.2f}"
-test_percent = f"{data['train_test_split']['metadata']['TEST_SIZE']['percent']:.2f}"
-```
+### Analyse des features
 
-| Jeu de données | Nombre d'images |
-|--|--|
-| TOTAL | `{python} data["train_test_split"]["shape"][0]`
-| TRAIN | `{python} data["train_test_split"]["metadata"]["TRAIN_SIZE"]["value"]` (`{python} train_percent`%)
-| TEST | `{python} data["train_test_split"]["metadata"]["TEST_SIZE"]["value"]` (`{python} test_percent`%)
+On remarquera, grace à cette visualisation, que les features moyennes permettent de conserver des informations concernant la forme d'un caractère et la "variance" permettant de mettre en avant les zones sans variabilité, donc potentiellement faibles en information.
 
+En un sens, les features moyennes fonctionnent comme une forme de compression et le nombre de patches choisi aura un effet sur la "qualité" de la compression. Ce choix sera donc un compromis entre réduire efficacement le nombre de features initiales et garder suffisamment d'information.
+
+Exemple pour la même lettre `qima` pour `9` et `25` patches:
+
+::: {layout-ncol=3}
+
+![Qima](./Images_Traitees/qima/objet_1_585.png){#fig-letter width=40%}
+
+![Moyennes 9](./export/9patches/qima/example_mean_qima.png){#fig-features width=40%}
+
+!["Variance" 9](./export/9patches/qima/example_std_qima.png){#fig-features width=40%}
+
+:::
+
+::: {layout-ncol=3}
+
+![Qima](./Images_Traitees/qima/objet_1_585.png){#fig-letter width=40%}
+
+![Moyennes 25](./export/25patches/qima/example_mean_qima.png){#fig-features width=40%}
+
+!["Variance" 25](./export/25patches/qima/example_std_qima.png){#fig-features width=40%}
+
+:::
+
+### Justification des features
+
+Afin de sélectionner un nombre raisonnable de features initiales, le choix a été fait de ne garder que les moyennes et variances des patches, mais d'autres features plus complexes auraient pu être envisagées. Les transformées de Fourier réelles, les moments de Zernike mais aussi l'histogramme des gradients orientés (aussi appelé `HOG`) sont des candidats potentiels pour rajouter plus de complexité aux modèles.
+
+Concernant le découpage l'image en patches chevauchant, l'idée était d'imiter des opérations de convolution qui sont utilisées en analyse d'image en tant que moyennes pondérées prenant en compte le voisinage. Ici chaque patch chevauche la moitié des patches voisins et chaque feature garde donc une partie de l'information de ses voisins.
+
+### Comparaison avec un entrainement naïf
+
+Afin de vérifier que les features par 16 patches sont pertinentes, chaque modèle sera entrainé deux fois, une fois en utilisant les features telles que décrites dans cette section et une fois en utilisant l'image entière comme features, soit avec `784` features. Dans la suite, le premier sera qualifié de modèle `16_patches` et le second de modèle `whole_image`.
+
+::: {.content-visible when-format="pdf"}
+
+\newpage
+
+:::
 
 ## Transformation des données
 
-Afin d'éviter des problèmes numériques et des imprécisions lors de l'apprentissage, il est nécessaire de transformer les données pour les rapprocher de l'intervale `[-1, 1]`.
+Comme indiqué dans [la documentation de scikit-learn concernant les `SVM`](https://scikit-learn.org/stable/modules/svm.html#tips-on-practical-use), les `SVM` sont sensibles aux changements d'échelle, il est donc « hautement recommendé de mettre les données à la même échelle ».
 
-Il sera utilisé un Standard Scaler: $z = \frac{x - m}{s}$ avec $m$ la moyenne et $s$ l'écart-type.
+### Mise à l'échelle par normalisation
 
-![Analyse des outliers](./graph/graphs_16_None/scaling.svg){#fig-scaling}
+Aussi d'éviter des problèmes numériques et des imprécisions lors de l'apprentissage, il est nécessaire de transformer les features pour les rapprocher de l'intervalle `[-1, 1]`. De plus les features moyennes et variance ne sont pas sur la même échelle, les moyennes étant entre `0` et `255` et les variances entre `0` et environ `16 000`. Il sera utilisé un Standard Scaler: $z = \frac{x - m}{s}$ avec $m$ la moyenne et $s$ l'écart-type.
+
+![Affichage des features avant et après mise à l'échelle](./graph/graphs_16_None/scaling.svg){#fig-scaling}
+
+### Mise à l'échelle et valeurs aberrantes
+
+Tout comme il est indiqué dans [la documentation sur les transformations de mise à l'échelle](https://scikit-learn.org/stable/auto_examples/preprocessing/plot_all_scaling.html#sphx-glr-auto-examples-preprocessing-plot-all-scaling-py), la normalisation standard est sensible aux valeurs aberrantes. Dans notre cas, les features étant bornées, ie la moyenne entre `0` et `255` et les variances entre `0` et environ `16 000`, la vérification sur la présence de valeurs aberrantes n'est pas nécessaire.
+
+Par curiosité, la méthode `MAD` (pour Median Absolute Distance) a été utilisée pour calculer le nombre de valeurs aberrantes potentielles. Pour rappel, on concidère que, dans un cas non-borné, la mise à l'échelle reste valide tant qu'on ne dépasse pas `5%` de valeurs aberrantes par features.
+
+```{python}
+nb_outliers = data["initial_data"]["metadata"]["OUTLIERS_ANALYSIS"]["nb_outliers"]
+pc_outliers = data["initial_data"]["metadata"]["OUTLIERS_ANALYSIS"]["percent"]
+
+import pandas as pd
+df_outlier = pd.DataFrame({"nb_outliers": nb_outliers, "percent": pc_outliers})
+df_outlier = df_outlier.sort_values(by="nb_outliers", ascending=False)
+df_outlier.index.name = "features"
+df_outlier.index = df_outlier.index.map(lambda x: f"moyenne_{x}" if x < npatches else f"variance_{x-npatches}")
+
+features_over = df_outlier[df_outlier.loc[:, "percent"] > 5.0]
+```
+
+```{python} 
+features_over
+```
+
+Ici, on affiche le nombre de valeurs aberrantes potentielles par features dépassant les `5%` de valeurs aberrantes. 
 
 ::: {.content-visible when-format="revealjs"}
 
@@ -162,39 +221,40 @@ Il sera utilisé un Standard Scaler: $z = \frac{x - m}{s}$ avec $m$ la moyenne e
 
 :::
 
+## Sélection des Features
+
+Reduction
+Différente approches testées en validation croisée
+
+## Entrainement des modèles
+
+### Séparation ensemble d'apprentissage et de test
+
 ```{python}
-nb_outliers = data["initial_data"]["metadata"]["OUTLIERS_ANALYSIS"]["nb_outliers"]
-pc_outliers = data["initial_data"]["metadata"]["OUTLIERS_ANALYSIS"]["percent"]
-
-import pandas as pd
-df_outlier = pd.DataFrame({"nb_outliers": nb_outliers, "percent": pc_outliers})
-df_outlier = df_outlier.sort_values(by="nb_outliers", ascending=False)
-df_outlier.index.name = "features"
-
-table = df_outlier.head()
-features_over = df_outlier.index[df_outlier.loc[:, "percent"] > 5.0]
+train_percent = f"{data['train_test_split']['metadata']['TRAIN_SIZE']['percent']:.2f}"
+test_percent = f"{data['train_test_split']['metadata']['TEST_SIZE']['percent']:.2f}"
 ```
 
-Bien qu'il y ait `{python} len(features_over)` features dépassant les `5%` d'outliers, on considère que la transformation des données est valide.
+| Jeu de données | Nombre d'images |
+|--|--|
+| TOTAL | `{python} data["train_test_split"]["shape"][0]`
+| TRAIN | `{python} data["train_test_split"]["metadata"]["TRAIN_SIZE"]["value"]` (`{python} train_percent`%)
+| TEST | `{python} data["train_test_split"]["metadata"]["TEST_SIZE"]["value"]` (`{python} test_percent`%)
 
-```{python} 
-table
-```
 
-
-## Recherche des hyper paramètres
+### Recherche des hyper paramètres
 
 On considère deux modèles, un SVM et un Random Forest. Actuellement on essaie d'optimiser les hyper paramètres uniquement du SVM. On étudie pour cela deux hyper paramètres `C` et `gamma`.
 
-### C
+#### C
 
 `C` représente la marge d'erreur que l'on autorise. S'il est petit, alors on autorise des erreurs de classification. Au contraire, avec une grande valeur, on est plus strict mais avec un risque d'overfitting
 
-### Gamma
+#### Gamma
 
 `Gamma` représente la distance à laquelle un élément éloigné a une influence sur les vecteurs de support. Si `gamma` est faible alors les éléments éloigné auront une influence, si élevé, seuls les éléments proches auront une influence.
 
-### Résultats
+#### Résultats
 
 En utilisant un shuffle split stratifié, on obtient les paramètres optimaux suivants:
 
